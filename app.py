@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 from data_loader import load_documents, create_vector_store, load_vector_store, get_document_count
+from tax_calculator import monthly_reduction, annual_reduction, dividend_withholding, irpfm_due
 
 # -----------------------------
 # 🎨 Configuração da página
@@ -119,6 +120,52 @@ if prompt := st.chat_input("Pergunte sobre os documentos fiscais..."):
         
         st.markdown(resposta)
         st.session_state.messages.append({"role": "assistant", "content": resposta})
+
+#------------------------------
+# Calculadora de IRPF
+#------------------------------
+st.header("🧾 Calculadora rápida - Reforma IRPF 2025")
+
+with st.expander("📥 Entradas para cálculo (mensal/anual/dividendos)"):
+    rend_mensal = st.number_input("Rendimento tributável mensal (R$)", min_value=0.0, value=8000.0, step=100.0)
+    rend_anual = st.number_input("Rendimentos tributáveis anuais (R$)", min_value=0.0, value=96000.0, step=1000.0)
+    irpf_apurado_anual = st.number_input("IRPF já apurado na declaração anual (R$)", min_value=0.0, value=5000.0, step=100.0)
+
+    # Simplicidade: dividendos por mês input como lista simples (csv)
+    div_csv = st.text_input("Dividendos por mês (R$) - CSV 12 valores, ex: 0,0,60000,...", value="0,"*11 + "0")
+    if st.button("🔢 Calcular carga e descontos"):
+        try:
+            months = [float(x.strip()) for x in div_csv.split(",")]
+            months_dict = {i+1: months[i] if i < len(months) else 0.0 for i in range(12)}
+        except Exception:
+            st.error("Formato CSV inválido. Coloque 12 valores separados por vírgula.")
+            months_dict = {i+1: 0.0 for i in range(12)}
+
+        # cálculos
+        redu_mensal = monthly_reduction(rend_mensal)
+        redu_anual = annual_reduction(rend_anual)
+        retained_total, ret_detail = dividend_withholding(months_dict)
+
+        irpfm_result = irpfm_due(
+            annual_total_rend=rend_anual + sum(months_dict.values()),  # aproximação: inclui dividendos
+            annual_irpf_apurado=irpf_apurado_anual,
+            retained_on_dividends_annual=retained_total,
+            redutor_info={
+                "montante_dividendos": sum(months_dict.values()),
+                # os seguintes campos seriam calculados se você integrar demonstrações da PJ
+                "aliquota_efetiva_pj": 0.165,  
+                "aliquota_efetiva_irpfm": 0.0,
+                "aliquota_nominal_sum": 0.34
+            }
+        )
+
+        st.subheader("📉 Resultados")
+        st.write(f"- Redução mensal aplicada (R$): **{redu_mensal:,.2f}**. (limite = imposto pela tabela progressiva)")
+        st.write(f"- Redução anual aplicada (R$): **{redu_anual:,.2f}**.")
+        st.write(f"- Retenção na fonte sobre dividendos (total anual, R$): **{retained_total:,.2f}**.")
+        st.write("Detalhe retenções por mês:", ret_detail)
+        st.write("IRPFM (simulação):")
+        st.json(irpfm_result)
 
 # -----------------------------
 # 📎 Rodapé
