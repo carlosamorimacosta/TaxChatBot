@@ -2,148 +2,126 @@ import streamlit as st
 import os
 from data_loader import load_documents, create_vector_store, load_vector_store, get_document_count
 
-# Configuração da página
+# -----------------------------
+# 🎨 Configuração da página
+# -----------------------------
 st.set_page_config(
     page_title="TaxBot - Assistente Fiscal",
     page_icon="📊",
     layout="wide"
 )
 
-# Título da aplicação
+# -----------------------------
+# 🏷️ Título e introdução
+# -----------------------------
 st.title("🤖 TaxBot - Assistente Fiscal Inteligente")
-st.markdown("---")
+st.markdown("Analisando documentos fiscais baixados no notebook 📚")
 
-# Inicializar session states
+# -----------------------------
+# 💾 Inicialização do estado
+# -----------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "documents_processed" not in st.session_state:
+    st.session_state.documents_processed = False
 
-# Sidebar para configurações
+# -----------------------------
+# 🧭 Sidebar - Controle e status
+# -----------------------------
 with st.sidebar:
     st.header("⚙️ Configurações")
     
-    # Upload de arquivos
+    # Upload de arquivos PDF
     uploaded_files = st.file_uploader(
-        "📎 Fazer upload de PDFs",
+        "📎 Fazer upload de PDFs fiscais",
         type=['pdf'],
-        accept_multiple_files=True
+        accept_multiple_files=True,
+        help="Faça upload dos PDFs baixados no notebook"
     )
     
     if uploaded_files:
-        # Garantir que a pasta docs existe
         os.makedirs("docs", exist_ok=True)
-        
-        # Salvar arquivos na pasta docs
         for uploaded_file in uploaded_files:
             file_path = os.path.join("docs", uploaded_file.name)
             with open(file_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
-        st.success(f"✅ {len(uploaded_files)} arquivo(s) carregado(s)!")
+        st.success(f"✅ {len(uploaded_files)} PDF(s) salvo(s) na pasta 'docs'!")
     
-    # Botão para processar documentos (versão simplificada)
-    if st.button("🔄 Processar Documentos"):
-        with st.spinner("Processando documentos..."):
+    # Botão para processar documentos
+    if st.button("🔄 Processar Documentos PDF"):
+        with st.spinner("Carregando e processando PDFs..."):
             try:
                 documents = load_documents()
-                st.success(f"✅ {len(documents)} documentos processados!")
+                if documents:
+                    st.session_state.documents_processed = True
+                    st.success(f"✅ {len(documents)} documentos PDF processados!")
+                    
+                    # Exibir lista de documentos carregados
+                    with st.expander("📋 Ver documentos carregados"):
+                        for doc in documents:
+                            st.write(f"**Arquivo:** {doc.metadata.get('filename', 'N/A')}")
+                            st.write(f"**Página:** {doc.metadata.get('page', 'N/A')}")
+                            st.markdown("---")
+                else:
+                    st.warning("⚠️ Nenhum PDF encontrado para processar.")
             except Exception as e:
-                st.error(f"❌ Erro: {e}")
+                st.error(f"❌ Erro ao processar documentos: {e}")
     
     # Informações do sistema
     st.markdown("---")
     st.header("📊 Status do Sistema")
     
-    # Contar arquivos na pasta docs
-    doc_files = []
-    if os.path.exists("docs"):
-        doc_files = [f for f in os.listdir("docs") if f.endswith('.pdf')]
-    
-    st.write(f"📁 Documentos carregados: {len(doc_files)}")
+    doc_count = get_document_count()
+    st.write(f"📁 PDFs na pasta 'docs': {doc_count}")
+    st.write(f"🔧 Processado: {'✅' if st.session_state.documents_processed else '❌'}")
     
     # Botão para limpar chat
     if st.button("🗑️ Limpar Chat"):
         st.session_state.messages = []
         st.rerun()
 
-# Abas principais
-tab1, tab2 = st.tabs(["💬 Chat Fiscal", "🧮 Calculadora IR"])
+# -----------------------------
+# 💬 Área principal do chat
+# -----------------------------
+st.header("💬 Chat com Documentos Fiscais")
 
-with tab1:
-    st.header("💬 Chat Fiscal Básico")
-    
-    # Exibir histórico de mensagens
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-    
-    # Input do usuário
-    if prompt := st.chat_input("Digite sua pergunta sobre impostos..."):
-        # Adicionar mensagem do usuário
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        # Gerar resposta básica
-        with st.chat_message("assistant"):
-            resposta = f"**Resposta simulada para:** '{prompt}'\n\n📝 *Sistema em configuração. Em breve teremos respostas baseadas em documentos fiscais.*"
-            st.markdown(resposta)
-            st.session_state.messages.append({"role": "assistant", "content": resposta})
+# Exibir histórico
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-with tab2:
-    st.header("🧮 Calculadora de Imposto de Renda")
+# Entrada do usuário
+if prompt := st.chat_input("Pergunte sobre os documentos fiscais..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
     
-    with st.form("calculadora_ir"):
-        col1, col2 = st.columns(2)
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    
+    # Geração de resposta
+    with st.chat_message("assistant"):
+        if st.session_state.documents_processed:
+            resposta = (
+                f"**Analisando sua pergunta sobre:** '{prompt}'\n\n"
+                "📚 **Documentos disponíveis para consulta:**\n"
+                "- Lei 7.713/88 e alterações\n"
+                "- Projetos de lei sobre IR\n"
+                "- Estudos sobre impactos tributários\n"
+                "- Análises de progressividade fiscal\n\n"
+                "💡 *Sistema em desenvolvimento — Em breve respostas precisas baseadas nos PDFs.*"
+            )
+        else:
+            resposta = (
+                "❌ **Por favor, processe os documentos PDF primeiro!**\n\n"
+                "1. Faça upload dos PDFs baixados no notebook\n"
+                "2. Clique em **'Processar Documentos PDF'**\n"
+                "3. Depois faça suas perguntas sobre o conteúdo"
+            )
         
-        with col1:
-            st.subheader("💰 Rendimentos")
-            salario = st.number_input("Salário Bruto Mensal (R$)", min_value=0.0, value=3000.0, step=100.0)
-            outros = st.number_input("Outros Rendimentos (R$)", min_value=0.0, value=0.0, step=100.0)
-        
-        with col2:
-            st.subheader("📝 Deduções")
-            dependentes = st.number_input("Número de Dependentes", min_value=0, value=0, step=1)
-            previdencia = st.number_input("Previdência (R$)", min_value=0.0, value=0.0, step=50.0)
-            pensao = st.number_input("Pensão Alimentícia (R$)", min_value=0.0, value=0.0, step=50.0)
-        
-        if st.form_submit_button("🎯 Calcular IR"):
-            # Cálculo simplificado
-            renda_mensal = salario + outros
-            deducao_dependentes = dependentes * 189.59
-            total_deducoes = previdencia + pensao + deducao_dependentes
-            base_calculo = max(0, renda_mensal - total_deducoes)
-            
-            # Tabela IRPF 2024 (mensal)
-            if base_calculo <= 1903.98:
-                ir_devido = 0
-            elif base_calculo <= 2826.65:
-                ir_devido = base_calculo * 0.075 - 142.80
-            elif base_calculo <= 3751.05:
-                ir_devido = base_calculo * 0.15 - 354.80
-            elif base_calculo <= 4664.68:
-                ir_devido = base_calculo * 0.225 - 636.13
-            else:
-                ir_devido = base_calculo * 0.275 - 869.36
-            
-            ir_devido = max(0, ir_devido)
-            
-            # Exibir resultados
-            st.success("✅ Cálculo realizado!")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("Renda Mensal", f"R$ {renda_mensal:,.2f}")
-                st.metric("IR Mensal", f"R$ {ir_devido:,.2f}")
-            
-            with col2:
-                st.metric("Base de Cálculo", f"R$ {base_calculo:,.2f}")
-                st.metric("Salário Líquido", f"R$ {renda_mensal - ir_devido:,.2f}")
-            
-            with col3:
-                aliquota_efetiva = (ir_devido / renda_mensal * 100) if renda_mensal > 0 else 0
-                st.metric("Alíquota Efetiva", f"{aliquota_efetiva:.1f}%")
+        st.markdown(resposta)
+        st.session_state.messages.append({"role": "assistant", "content": resposta})
 
-# Rodapé
+# -----------------------------
+# 📎 Rodapé
+# -----------------------------
 st.markdown("---")
-st.markdown("💡 **Sistema em desenvolvimento** - Funcionalidades avançadas em implementação!")
+st.markdown("💡 **Instruções:** Faça upload dos PDFs baixados no notebook e clique em 'Processar Documentos PDF' para começar!")
