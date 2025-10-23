@@ -5,7 +5,7 @@ from tax_calculator import (
     monthly_reduction,
     annual_reduction,
     dividend_withholding,
-    irpfm_due
+    irpfm_due,
 )
 
 # -----------------------------
