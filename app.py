@@ -10,7 +10,7 @@ from datetime import datetime
 
 # Configuração da página
 st.set_page_config(
-    page_title="Tax Chatbot FGV - Especialista Tributário",
+    page_title="Taxbot FGV - Especialista Tributário",
     page_icon="🤖",
     layout="wide"
 )
