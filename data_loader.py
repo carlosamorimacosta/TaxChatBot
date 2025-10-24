@@ -13,14 +13,14 @@ class Document:
 
 def load_documents():
     """
-    Carrega todos os documentos PDF da pasta docs/
+    Carrega todos os documentos PDF da pasta documents/
     Foca apenas nos PDFs baixados no notebook
     """
     print("🔧 Iniciando carregamento de documentos PDF...")
     documents = []
-    docs_path = "docs"
+    docs_path = "documents"  # MUDADO: de "docs" para "documents"
     
-    # Criar pasta docs se não existir
+    # Criar pasta documents se não existir
     if not os.path.exists(docs_path):
         os.makedirs(docs_path)
         print(f"📁 Pasta '{docs_path}' criada.")
@@ -29,7 +29,7 @@ def load_documents():
     
     # Buscar APENAS arquivos PDF (ignorar MD e outros)
     pdf_files = glob.glob(os.path.join(docs_path, "*.pdf"))
-    print(f"📄 PDFs encontrados na pasta 'docs': {len(pdf_files)}")
+    print(f"📄 PDFs encontrados na pasta 'documents': {len(pdf_files)}")  # MUDADO
     
     # Listar os arquivos encontrados
     for i, pdf_file in enumerate(pdf_files, 1):
@@ -37,8 +37,8 @@ def load_documents():
     
     # Se não há PDFs, retornar lista vazia
     if not pdf_files:
-        print("❌ Nenhum arquivo PDF encontrado na pasta 'docs'")
-        print("💡 Faça o download dos PDFs no notebook e salve na pasta 'docs'")
+        print("❌ Nenhum arquivo PDF encontrado na pasta 'documents'")  # MUDADO
+        print("💡 Faça o download dos PDFs no notebook e salve na pasta 'documents'")  # MUDADO
         return documents
     
     # Simular carregamento dos PDFs (versão simplificada)
@@ -111,7 +111,7 @@ def get_document_count():
     """
     Retorna o número de documentos disponíveis
     """
-    docs_path = "docs"
+    docs_path = "documents"  # MUDADO: de "docs" para "documents"
     if os.path.exists(docs_path):
         pdf_files = glob.glob(os.path.join(docs_path, "*.pdf"))
         return len(pdf_files)
@@ -125,7 +125,7 @@ if __name__ == "__main__":
     
     # Testar contagem de documentos
     doc_count = get_document_count()
-    print(f"📁 PDFs na pasta 'docs': {doc_count}")
+    print(f"📁 PDFs na pasta 'documents': {doc_count}")  # MUDADO
     
     # Testar carregamento
     documents = load_documents()
