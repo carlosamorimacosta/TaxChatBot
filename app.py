@@ -1,7 +1,10 @@
 import streamlit as st
 import os
 from data_loader import load_documents, create_vector_store, load_vector_store, get_document_count
-from tax_calculator import monthly_reduction, annual_reduction, dividend_withholding, irpfm_due
+from tax_calculator import monthly_reduction
+from tax_calculator import annual_reduction
+from tax_calculator import dividend_withholding
+from tax_calculator import irpfm_due
 
 # -----------------------------
 # 🎨 Configuração da página
