@@ -1,177 +1,264 @@
 import streamlit as st
+import PyPDF2
+import pdfplumber
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
 import os
-from data_loader import load_documents, create_vector_store, load_vector_store, get_document_count
-from tax_calculator import monthly_reduction
-from tax_calculator import annual_reduction
-from tax_calculator import dividend_withholding
-from tax_calculator import irpfm_due
+import time
 
-# -----------------------------
-# 🎨 Configuração da página
-# -----------------------------
+# Configuração da página
 st.set_page_config(
-    page_title="TaxBot - Assistente Fiscal",
-    page_icon="📊",
+    page_title="Tax Chatbot FGV",
+    page_icon="🤖",
     layout="wide"
 )
 
-# -----------------------------
-# 🏷️ Título e introdução
-# -----------------------------
-st.title("🤖 TaxBot - Assistente Fiscal Inteligente")
-st.markdown("Analisando documentos fiscais baixados no notebook 📚")
-
-# -----------------------------
-# 💾 Inicialização do estado
-# -----------------------------
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "documents_processed" not in st.session_state:
-    st.session_state.documents_processed = False
-
-# -----------------------------
-# 🧭 Sidebar - Controle e status
-# -----------------------------
-with st.sidebar:
-    st.header("⚙️ Configurações")
+class TaxDocumentProcessor:
+    def __init__(self):
+        self.documents_path = "documents"
+        self.vector_store = None
     
-    # Upload de arquivos PDF
-    uploaded_files = st.file_uploader(
-        "📎 Fazer upload de PDFs fiscais",
-        type=['pdf'],
-        accept_multiple_files=True,
-        help="Faça upload dos PDFs baixados no notebook"
-    )
-    
-    if uploaded_files:
-        os.makedirs("docs", exist_ok=True)
-        for uploaded_file in uploaded_files:
-            file_path = os.path.join("docs", uploaded_file.name)
-            with open(file_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-        st.success(f"✅ {len(uploaded_files)} PDF(s) salvo(s) na pasta 'docs'!")
-    
-    # Botão para processar documentos
-    if st.button("🔄 Processar Documentos PDF"):
-        with st.spinner("Carregando e processando PDFs..."):
-            try:
-                documents = load_documents()
-                if documents:
-                    st.session_state.documents_processed = True
-                    st.success(f"✅ {len(documents)} documentos PDF processados!")
-                    
-                    # Exibir lista de documentos carregados
-                    with st.expander("📋 Ver documentos carregados"):
-                        for doc in documents:
-                            st.write(f"**Arquivo:** {doc.metadata.get('filename', 'N/A')}")
-                            st.write(f"**Página:** {doc.metadata.get('page', 'N/A')}")
-                            st.markdown("---")
-                else:
-                    st.warning("⚠️ Nenhum PDF encontrado para processar.")
-            except Exception as e:
-                st.error(f"❌ Erro ao processar documentos: {e}")
-    
-    # Informações do sistema
-    st.markdown("---")
-    st.header("📊 Status do Sistema")
-    
-    doc_count = get_document_count()
-    st.write(f"📁 PDFs na pasta 'docs': {doc_count}")
-    st.write(f"🔧 Processado: {'✅' if st.session_state.documents_processed else '❌'}")
-    
-    # Botão para limpar chat
-    if st.button("🗑️ Limpar Chat"):
-        st.session_state.messages = []
-        st.rerun()
-
-# -----------------------------
-# 💬 Área principal do chat
-# -----------------------------
-st.header("💬 Chat com Documentos Fiscais")
-
-# Exibir histórico
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-# Entrada do usuário
-if prompt := st.chat_input("Pergunte sobre os documentos fiscais..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    
-    with st.chat_message("user"):
-        st.markdown(prompt)
-    
-    # Geração de resposta
-    with st.chat_message("assistant"):
-        if st.session_state.documents_processed:
-            resposta = (
-                f"**Analisando sua pergunta sobre:** '{prompt}'\n\n"
-                "📚 **Documentos disponíveis para consulta:**\n"
-                "- Lei 7.713/88 e alterações\n"
-                "- Projetos de lei sobre IR\n"
-                "- Estudos sobre impactos tributários\n"
-                "- Análises de progressividade fiscal\n\n"
-                "💡 *Sistema em desenvolvimento — Em breve respostas precisas baseadas nos PDFs.*"
-            )
-        else:
-            resposta = (
-                "❌ **Por favor, processe os documentos PDF primeiro!**\n\n"
-                "1. Faça upload dos PDFs baixados no notebook\n"
-                "2. Clique em **'Processar Documentos PDF'**\n"
-                "3. Depois faça suas perguntas sobre o conteúdo"
-            )
-        
-        st.markdown(resposta)
-        st.session_state.messages.append({"role": "assistant", "content": resposta})
-
-#------------------------------
-# Calculadora de IRPF
-#------------------------------
-st.header("🧾 Calculadora rápida - Reforma IRPF 2025")
-
-with st.expander("📥 Entradas para cálculo (mensal/anual/dividendos)"):
-    rend_mensal = st.number_input("Rendimento tributável mensal (R$)", min_value=0.0, value=8000.0, step=100.0)
-    rend_anual = st.number_input("Rendimentos tributáveis anuais (R$)", min_value=0.0, value=96000.0, step=1000.0)
-    irpf_apurado_anual = st.number_input("IRPF já apurado na declaração anual (R$)", min_value=0.0, value=5000.0, step=100.0)
-
-    # Simplicidade: dividendos por mês input como lista simples (csv)
-    div_csv = st.text_input("Dividendos por mês (R$) - CSV 12 valores, ex: 0,0,60000,...", value="0,"*11 + "0")
-    if st.button("🔢 Calcular carga e descontos"):
+    def extract_text_from_pdf(self, pdf_path):
+        """Extrai texto de arquivos PDF"""
+        text = ""
         try:
-            months = [float(x.strip()) for x in div_csv.split(",")]
-            months_dict = {i+1: months[i] if i < len(months) else 0.0 for i in range(12)}
-        except Exception:
-            st.error("Formato CSV inválido. Coloque 12 valores separados por vírgula.")
-            months_dict = {i+1: 0.0 for i in range(12)}
+            with pdfplumber.open(pdf_path) as pdf:
+                for page_num, page in enumerate(pdf.pages):
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += f"--- Página {page_num + 1} ---\n{page_text}\n\n"
+        except Exception as e:
+            st.warning(f"Erro com pdfplumber em {os.path.basename(pdf_path)}: {e}")
+            try:
+                with open(pdf_path, 'rb') as file:
+                    pdf_reader = PyPDF2.PdfReader(file)
+                    for page_num, page in enumerate(pdf_reader.pages):
+                        page_text = page.extract_text()
+                        if page_text:
+                            text += f"--- Página {page_num + 1} ---\n{page_text}\n\n"
+            except Exception as e2:
+                st.error(f"Erro crítico no PDF {os.path.basename(pdf_path)}: {e2}")
+                return ""
+        
+        return text
 
-        # cálculos
-        redu_mensal = monthly_reduction(rend_mensal)
-        redu_anual = annual_reduction(rend_anual)
-        retained_total, ret_detail = dividend_withholding(months_dict)
+    def load_and_process_documents(self):
+        """Carrega e processa todos os PDFs da pasta documents"""
+        # Verifica se a pasta documents existe
+        if not os.path.exists(self.documents_path):
+            st.error(f"❌ Pasta '{self.documents_path}' não encontrada!")
+            st.info("👉 Crie uma pasta chamada 'documents' e adicione os PDFs lá")
+            return None
+        
+        # Lista todos os PDFs
+        pdf_files = [f for f in os.listdir(self.documents_path) if f.lower().endswith('.pdf')]
+        
+        if not pdf_files:
+            st.error(f"❌ Nenhum arquivo PDF encontrado na pasta '{self.documents_path}'")
+            st.info("👉 Adicione arquivos PDF na pasta 'documents'")
+            return None
+        
+        st.success(f"📚 Encontrados {len(pdf_files)} documentos PDF")
+        
+        all_texts = []
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        # Processa cada PDF
+        for i, pdf_file in enumerate(pdf_files):
+            pdf_path = os.path.join(self.documents_path, pdf_file)
+            status_text.text(f"📖 Processando: {pdf_file}...")
+            
+            text = self.extract_text_from_pdf(pdf_path)
+            if text and len(text.strip()) > 50:
+                all_texts.append(text)
+                st.info(f"✅ {pdf_file} - {len(text)} caracteres extraídos")
+            else:
+                st.warning(f"⚠️ {pdf_file} - Pouco texto extraído ou PDF pode ser imagem")
+            
+            progress_bar.progress((i + 1) / len(pdf_files))
+        
+        status_text.text("✅ Processamento concluído!")
+        return all_texts
 
-        irpfm_result = irpfm_due(
-            annual_total_rend=rend_anual + sum(months_dict.values()),  # aproximação: inclui dividendos
-            annual_irpf_apurado=irpf_apurado_anual,
-            retained_on_dividends_annual=retained_total,
-            redutor_info={
-                "montante_dividendos": sum(months_dict.values()),
-                # os seguintes campos seriam calculados se você integrar demonstrações da PJ
-                "aliquota_efetiva_pj": 0.165,  
-                "aliquota_efetiva_irpfm": 0.0,
-                "aliquota_nominal_sum": 0.34
-            }
+    def create_vector_store(self, texts):
+        """Cria o vector store a partir dos textos"""
+        if not texts:
+            return None
+        
+        with st.spinner("🔧 Dividindo textos em partes menores..."):
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=800,
+                chunk_overlap=100,
+                length_function=len
+            )
+            
+            chunks = []
+            for text in texts:
+                chunks.extend(text_splitter.split_text(text))
+            
+            st.info(f"📝 Criados {len(chunks)} segmentos de texto")
+
+        with st.spinner("🧠 Criando representações numéricas do texto..."):
+            embeddings = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2"
+            )
+            
+            vector_store = FAISS.from_texts(chunks, embeddings)
+        
+        return vector_store
+
+def initialize_system():
+    """Inicializa o sistema completo"""
+    st.title("🤖 Tax Chatbot FGV - Legislação Tributária")
+    st.markdown("---")
+    
+    # Verifica se já está inicializado
+    if 'initialized' in st.session_state and st.session_state.initialized:
+        st.sidebar.success("✅ Sistema já inicializado")
+        return st.session_state.vector_store
+    
+    # Processo de inicialização
+    with st.expander("🔧 Status do Sistema", expanded=True):
+        st.info("Inicializando sistema...")
+        
+        processor = TaxDocumentProcessor()
+        
+        with st.spinner("📂 Carregando documentos..."):
+            texts = processor.load_and_process_documents()
+            
+            if not texts:
+                st.error("🚫 Não foi possível carregar os documentos")
+                return None
+            
+            st.success(f"📄 {len(texts)} documentos carregados com sucesso")
+        
+        with st.spinner("🤖 Preparando base de conhecimento..."):
+            vector_store = processor.create_vector_store(texts)
+            
+            if vector_store:
+                st.session_state.vector_store = vector_store
+                st.session_state.initialized = True
+                st.success("✅ Sistema inicializado com sucesso!")
+                return vector_store
+            else:
+                st.error("❌ Falha ao criar base de conhecimento")
+                return None
+
+def main():
+    """Função principal da aplicação"""
+    
+    # Inicializa o sistema
+    vector_store = initialize_system()
+    
+    if vector_store is None:
+        st.error("""
+        ❌ **Sistema não pode ser inicializado**
+        
+        **Soluções possíveis:**
+        1. Crie uma pasta chamada `documents` na raiz do projeto
+        2. Adicione arquivos PDF com texto extraível na pasta `documents`
+        3. Verifique se os PDFs não são apenas imagens
+        4. Execute `pip install -r requirements.txt` para instalar dependências
+        """)
+        return
+    
+    # Sidebar com informações
+    st.sidebar.title("📊 Informações do Sistema")
+    st.sidebar.success("✅ Sistema operacional")
+    st.sidebar.info("""
+    **Documentos Carregados:**
+    - Legislação Tributária
+    - Código Tributário
+    - Leis Fiscais
+    - Regulamentos
+    """)
+    
+    # Área principal de perguntas
+    st.header("💬 Faça sua pergunta tributária")
+    
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        question = st.text_area(
+            "**Descreva sua dúvida:**",
+            placeholder="Ex: Qual a alíquota do Imposto de Renda para pessoa jurídica em 2024?",
+            height=120
         )
+    
+    with col2:
+        st.markdown("### 💡 Dicas")
+        st.markdown("""
+        - Seja específico
+        - Menção artigos/laws
+        - Contextualize a situação
+        """)
+        
+        search_type = st.selectbox(
+            "Tipo de busca:",
+            ["Padrão", "Estrita", "Ampla"]
+        )
+    
+    # Botão de consulta
+    if st.button("🔍 Consultar Legislação", type="primary", use_container_width=True):
+        if not question.strip():
+            st.warning("⚠️ Por favor, digite uma pergunta")
+            return
+        
+        with st.spinner("🔎 Consultando base legislativa..."):
+            # Busca documentos relevantes
+            k = 3 if search_type == "Estrita" else 5 if search_type == "Ampla" else 4
+            docs = vector_store.similarity_search(question, k=k)
+            
+            # Prepara contexto
+            context = "\n\n".join([f"**Documento {i+1}:**\n{doc.page_content}" 
+                                 for i, doc in enumerate(docs)])
+            
+            # Gera resposta
+            response = generate_legal_response(question, context)
+            
+            # Exibe resultados
+            st.markdown("## 📋 Resposta Legal")
+            st.success(response)
+            
+            # Mostra fontes
+            with st.expander("📚 Fontes Consultadas", expanded=False):
+                for i, doc in enumerate(docs):
+                    st.markdown(f"### 📄 Fonte {i+1}")
+                    st.text(doc.page_content)
+                    st.markdown("---")
 
-        st.subheader("📉 Resultados")
-        st.write(f"- Redução mensal aplicada (R$): **{redu_mensal:,.2f}**. (limite = imposto pela tabela progressiva)")
-        st.write(f"- Redução anual aplicada (R$): **{redu_anual:,.2f}**.")
-        st.write(f"- Retenção na fonte sobre dividendos (total anual, R$): **{retained_total:,.2f}**.")
-        st.write("Detalhe retenções por mês:", ret_detail)
-        st.write("IRPFM (simulação):")
-        st.json(irpfm_result)
+def generate_legal_response(question, context):
+    """Gera resposta baseada na legislação"""
+    # SIMULAÇÃO - SUBSTITUA POR SEU MODELO LLM REAL
+    
+    prompt = f"""
+    PERGUNTA DO USUÁRIO: {question}
+    
+    CONTEXTO LEGAL ENCONTRADO:
+    {context}
+    
+    Por favor, forneça uma resposta técnica e precisa baseada exclusivamente no contexto fornecido.
+    """
+    
+    # Resposta simulada - SUBSTITUA ISSO!
+    resposta = f"""
+    **Análise da Consulta:** "{question}"
 
-# -----------------------------
-# 📎 Rodapé
-# -----------------------------
-st.markdown("---")
-st.markdown("💡 **Instruções:** Faça upload dos PDFs baixados no notebook e clique em 'Processar Documentos PDF' para começar!")
+    **Base Legal Consultada:**
+    Foram analisados {len(context.split('**Documento'))-1} documentos da base legislativa tributária.
+
+    **Resposta Técnica:**
+    Com base na legislação tributária consultada, as informações relevantes foram extraídas dos documentos oficiais. Para uma resposta específica sobre alíquotas, prazos, obrigações acessórias ou procedimentos fiscais, recomenda-se a consulta direta aos artigos e dispositivos legais mencionados nas fontes.
+
+    **Observação:** Esta é uma resposta simulada. Integre com seu modelo LLM para respostas precisas.
+
+    *Fonte: Base de documentos tributários processados.*
+    """
+    
+    return resposta
+
+# Rodar a aplicação
+if __name__ == "__main__":
+    main()
