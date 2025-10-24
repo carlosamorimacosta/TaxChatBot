@@ -1,211 +1,264 @@
 import streamlit as st
+import PyPDF2
+import pdfplumber
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.vectorstores import FAISS
 import os
-from data_loader import load_documents, create_vector_store, get_document_count
-from qa_chain import create_qa_chain
+import time
 
 # Configuração da página
 st.set_page_config(
-    page_title="TaxBot - Assistente Fiscal",
-    page_icon="📊",
+    page_title="Tax Chatbot FGV",
+    page_icon="🤖",
     layout="wide"
 )
 
-# Título da aplicação
-st.title("🤖 TaxBot - Assistente Fiscal Inteligente")
-st.markdown("---")
-
-# Inicializar session states
-if "qa_initialized" not in st.session_state:
-    st.session_state.qa_initialized = False
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Sidebar para configurações
-with st.sidebar:
-    st.header("⚙️ Configurações")
+class TaxDocumentProcessor:
+    def __init__(self):
+        self.documents_path = "documents"
+        self.vector_store = None
     
-    # Upload de arquivos
-    uploaded_files = st.file_uploader(
-        "📎 Fazer upload de PDFs",
-        type=['pdf'],
-        accept_multiple_files=True
-    )
-    
-    if uploaded_files:
-        # Garantir que a pasta docs existe
-        os.makedirs("docs", exist_ok=True)
-        
-        # Salvar arquivos na pasta docs
-        for uploaded_file in uploaded_files:
-            file_path = os.path.join("docs", uploaded_file.name)
-            with open(file_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-        st.success(f"✅ {len(uploaded_files)} arquivo(s) carregado(s)!")
-    
-    # Botão para processar documentos
-    if st.button("🔄 Processar Documentos"):
-        with st.spinner("Processando documentos..."):
-            try:
-                documents = load_documents()
-                if documents:
-                    vector_store = create_vector_store(documents)
-                    st.session_state.qa_initialized = False  # Forçar reinicialização
-                    st.success(f"✅ {len(documents)} documentos processados!")
-                    
-                    # Mostrar estatísticas
-                    doc_count = get_document_count()
-                    st.info(f"📊 Banco vetorial contém: {doc_count} chunks")
-                else:
-                    st.warning("⚠️ Nenhum documento encontrado na pasta 'docs'")
-            except Exception as e:
-                st.error(f"❌ Erro ao processar documentos: {e}")
-    
-    # Informações do sistema
-    st.markdown("---")
-    st.header("📊 Status do Sistema")
-    
-    # Contar arquivos na pasta docs
-    doc_files = []
-    if os.path.exists("docs"):
-        doc_files = [f for f in os.listdir("docs") if f.endswith('.pdf')]
-    
-    st.write(f"📁 Documentos carregados: {len(doc_files)}")
-    st.write(f"🤖 QA Inicializada: {'✅' if st.session_state.qa_initialized else '❌'}")
-    
-    # Botão para limpar chat
-    if st.button("🗑️ Limpar Chat"):
-        st.session_state.messages = []
-        st.rerun()
-
-# Abas principais
-tab1, tab2 = st.tabs(["💬 Chat Fiscal", "🧮 Calculadora IR"])
-
-with tab1:
-    st.header("💬 Faça sua pergunta sobre legislação fiscal")
-    
-    # Inicializar QA Chain se necessário
-    if not st.session_state.qa_initialized:
+    def extract_text_from_pdf(self, pdf_path):
+        """Extrai texto de arquivos PDF"""
+        text = ""
         try:
-            qa_chain = create_qa_chain()
-            if qa_chain.initialize():
-                st.session_state.qa_initialized = True
-                st.sidebar.success("✅ QA Chain inicializada!")
-            else:
-                st.warning("⚠️ Carregue e processe documentos primeiro")
+            with pdfplumber.open(pdf_path) as pdf:
+                for page_num, page in enumerate(pdf.pages):
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += f"--- Página {page_num + 1} ---\n{page_text}\n\n"
         except Exception as e:
-            st.error(f"❌ Erro ao inicializar QA: {e}")
-    
-    # Exibir histórico de mensagens
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-            
-            # Mostrar fontes se for resposta do assistente
-            if message["role"] == "assistant" and "sources" in message and message["sources"]:
-                with st.expander("📚 Fontes consultadas"):
-                    for source in message["sources"]:
-                        st.write(f"**Arquivo:** {os.path.basename(source['source'])}")
-                        st.write(f"**Página:** {source['page']}")
-                        st.write(f"**Trecho:** {source['content']}")
-                        st.markdown("---")
-    
-    # Input do usuário
-    if prompt := st.chat_input("Digite sua pergunta sobre impostos, legislação fiscal..."):
-        # Adicionar mensagem do usuário
-        st.session_state.messages.append({"role": "user", "content": prompt})
+            st.warning(f"Erro com pdfplumber em {os.path.basename(pdf_path)}: {e}")
+            try:
+                with open(pdf_path, 'rb') as file:
+                    pdf_reader = PyPDF2.PdfReader(file)
+                    for page_num, page in enumerate(pdf_reader.pages):
+                        page_text = page.extract_text()
+                        if page_text:
+                            text += f"--- Página {page_num + 1} ---\n{page_text}\n\n"
+            except Exception as e2:
+                st.error(f"Erro crítico no PDF {os.path.basename(pdf_path)}: {e2}")
+                return ""
         
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        # Gerar resposta
-        with st.chat_message("assistant"):
-            with st.spinner("🔍 Consultando base de conhecimento..."):
-                try:
-                    if st.session_state.qa_initialized:
-                        qa_chain = create_qa_chain()
-                        result = qa_chain.ask_question(prompt)
-                        
-                        # Exibir resposta
-                        st.markdown(result["answer"])
-                        
-                        # Adicionar ao histórico com fontes
-                        st.session_state.messages.append({
-                            "role": "assistant", 
-                            "content": result["answer"],
-                            "sources": result.get("sources", [])
-                        })
-                    else:
-                        error_msg = "❌ Sistema não inicializado. Por favor, carregue e processe documentos primeiro."
-                        st.error(error_msg)
-                        st.session_state.messages.append({
-                            "role": "assistant", 
-                            "content": error_msg
-                        })
-                        
-                except Exception as e:
-                    error_msg = f"❌ Erro ao gerar resposta: {e}"
-                    st.error(error_msg)
-                    st.session_state.messages.append({
-                        "role": "assistant", 
-                        "content": error_msg
-                    })
+        return text
 
-with tab2:
-    st.header("🧮 Calculadora de Imposto de Renda")
-    
-    with st.form("calculadora_ir"):
-        col1, col2 = st.columns(2)
+    def load_and_process_documents(self):
+        """Carrega e processa todos os PDFs da pasta documents"""
+        # Verifica se a pasta documents existe
+        if not os.path.exists(self.documents_path):
+            st.error(f"❌ Pasta '{self.documents_path}' não encontrada!")
+            st.info("👉 Crie uma pasta chamada 'documents' e adicione os PDFs lá")
+            return None
         
-        with col1:
-            st.subheader("💰 Rendimentos")
-            salario = st.number_input("Salário Bruto Mensal (R$)", min_value=0.0, value=3000.0, step=100.0)
-            outros = st.number_input("Outros Rendimentos (R$)", min_value=0.0, value=0.0, step=100.0)
+        # Lista todos os PDFs
+        pdf_files = [f for f in os.listdir(self.documents_path) if f.lower().endswith('.pdf')]
         
-        with col2:
-            st.subheader("📝 Deduções")
-            dependentes = st.number_input("Número de Dependentes", min_value=0, value=0, step=1)
-            previdencia = st.number_input("Previdência (R$)", min_value=0.0, value=0.0, step=50.0)
-            pensao = st.number_input("Pensão Alimentícia (R$)", min_value=0.0, value=0.0, step=50.0)
+        if not pdf_files:
+            st.error(f"❌ Nenhum arquivo PDF encontrado na pasta '{self.documents_path}'")
+            st.info("👉 Adicione arquivos PDF na pasta 'documents'")
+            return None
         
-        if st.form_submit_button("🎯 Calcular IR"):
-            # Cálculo simplificado
-            renda_total = salario + outros
-            deducao_dependentes = dependentes * 189.59
-            total_deducoes = previdencia + pensao + deducao_dependentes
-            base_calculo = max(0, renda_total - total_deducoes)
+        st.success(f"📚 Encontrados {len(pdf_files)} documentos PDF")
+        
+        all_texts = []
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        # Processa cada PDF
+        for i, pdf_file in enumerate(pdf_files):
+            pdf_path = os.path.join(self.documents_path, pdf_file)
+            status_text.text(f"📖 Processando: {pdf_file}...")
             
-            # Cálculo simplificado do IR
-            if base_calculo <= 1903.98:
-                ir_devido = 0
-            elif base_calculo <= 2826.65:
-                ir_devido = base_calculo * 0.075 - 142.80
-            elif base_calculo <= 3751.05:
-                ir_devido = base_calculo * 0.15 - 354.80
-            elif base_calculo <= 4664.68:
-                ir_devido = base_calculo * 0.225 - 636.13
+            text = self.extract_text_from_pdf(pdf_path)
+            if text and len(text.strip()) > 50:
+                all_texts.append(text)
+                st.info(f"✅ {pdf_file} - {len(text)} caracteres extraídos")
             else:
-                ir_devido = base_calculo * 0.275 - 869.36
+                st.warning(f"⚠️ {pdf_file} - Pouco texto extraído ou PDF pode ser imagem")
             
-            ir_devido = max(0, ir_devido)
-            
-            # Exibir resultados
-            st.success("✅ Cálculo realizado!")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("Renda Total", f"R$ {renda_total:,.2f}")
-                st.metric("Total Deduções", f"R$ {total_deducoes:,.2f}")
-            
-            with col2:
-                st.metric("Base de Cálculo", f"R$ {base_calculo:,.2f}")
-                st.metric("IR Devido", f"R$ {ir_devido:,.2f}")
-            
-            with col3:
-                aliquota_efetiva = (ir_devido / renda_total * 100) if renda_total > 0 else 0
-                st.metric("Alíquota Efetiva", f"{aliquota_efetiva:.1f}%")
-                st.metric("Salário Líquido", f"R$ {renda_total - ir_devido:,.2f}")
+            progress_bar.progress((i + 1) / len(pdf_files))
+        
+        status_text.text("✅ Processamento concluído!")
+        return all_texts
 
-# Rodapé
-st.markdown("---")
-st.markdown("💡 **Dica:** Faça upload de documentos fiscais e clique em 'Processar Documentos' para ativar o chat inteligente!")
+    def create_vector_store(self, texts):
+        """Cria o vector store a partir dos textos"""
+        if not texts:
+            return None
+        
+        with st.spinner("🔧 Dividindo textos em partes menores..."):
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=800,
+                chunk_overlap=100,
+                length_function=len
+            )
+            
+            chunks = []
+            for text in texts:
+                chunks.extend(text_splitter.split_text(text))
+            
+            st.info(f"📝 Criados {len(chunks)} segmentos de texto")
+
+        with st.spinner("🧠 Criando representações numéricas do texto..."):
+            embeddings = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2"
+            )
+            
+            vector_store = FAISS.from_texts(chunks, embeddings)
+        
+        return vector_store
+
+def initialize_system():
+    """Inicializa o sistema completo"""
+    st.title("🤖 Tax Chatbot FGV - Legislação Tributária")
+    st.markdown("---")
+    
+    # Verifica se já está inicializado
+    if 'initialized' in st.session_state and st.session_state.initialized:
+        st.sidebar.success("✅ Sistema já inicializado")
+        return st.session_state.vector_store
+    
+    # Processo de inicialização
+    with st.expander("🔧 Status do Sistema", expanded=True):
+        st.info("Inicializando sistema...")
+        
+        processor = TaxDocumentProcessor()
+        
+        with st.spinner("📂 Carregando documentos..."):
+            texts = processor.load_and_process_documents()
+            
+            if not texts:
+                st.error("🚫 Não foi possível carregar os documentos")
+                return None
+            
+            st.success(f"📄 {len(texts)} documentos carregados com sucesso")
+        
+        with st.spinner("🤖 Preparando base de conhecimento..."):
+            vector_store = processor.create_vector_store(texts)
+            
+            if vector_store:
+                st.session_state.vector_store = vector_store
+                st.session_state.initialized = True
+                st.success("✅ Sistema inicializado com sucesso!")
+                return vector_store
+            else:
+                st.error("❌ Falha ao criar base de conhecimento")
+                return None
+
+def main():
+    """Função principal da aplicação"""
+    
+    # Inicializa o sistema
+    vector_store = initialize_system()
+    
+    if vector_store is None:
+        st.error("""
+        ❌ **Sistema não pode ser inicializado**
+        
+        **Soluções possíveis:**
+        1. Crie uma pasta chamada `documents` na raiz do projeto
+        2. Adicione arquivos PDF com texto extraível na pasta `documents`
+        3. Verifique se os PDFs não são apenas imagens
+        4. Execute `pip install -r requirements.txt` para instalar dependências
+        """)
+        return
+    
+    # Sidebar com informações
+    st.sidebar.title("📊 Informações do Sistema")
+    st.sidebar.success("✅ Sistema operacional")
+    st.sidebar.info("""
+    **Documentos Carregados:**
+    - Legislação Tributária
+    - Código Tributário
+    - Leis Fiscais
+    - Regulamentos
+    """)
+    
+    # Área principal de perguntas
+    st.header("💬 Faça sua pergunta tributária")
+    
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        question = st.text_area(
+            "**Descreva sua dúvida:**",
+            placeholder="Ex: Qual a alíquota do Imposto de Renda para pessoa jurídica em 2024?",
+            height=120
+        )
+    
+    with col2:
+        st.markdown("### 💡 Dicas")
+        st.markdown("""
+        - Seja específico
+        - Menção artigos/laws
+        - Contextualize a situação
+        """)
+        
+        search_type = st.selectbox(
+            "Tipo de busca:",
+            ["Padrão", "Estrita", "Ampla"]
+        )
+    
+    # Botão de consulta
+    if st.button("🔍 Consultar Legislação", type="primary", use_container_width=True):
+        if not question.strip():
+            st.warning("⚠️ Por favor, digite uma pergunta")
+            return
+        
+        with st.spinner("🔎 Consultando base legislativa..."):
+            # Busca documentos relevantes
+            k = 3 if search_type == "Estrita" else 5 if search_type == "Ampla" else 4
+            docs = vector_store.similarity_search(question, k=k)
+            
+            # Prepara contexto
+            context = "\n\n".join([f"**Documento {i+1}:**\n{doc.page_content}" 
+                                 for i, doc in enumerate(docs)])
+            
+            # Gera resposta
+            response = generate_legal_response(question, context)
+            
+            # Exibe resultados
+            st.markdown("## 📋 Resposta Legal")
+            st.success(response)
+            
+            # Mostra fontes
+            with st.expander("📚 Fontes Consultadas", expanded=False):
+                for i, doc in enumerate(docs):
+                    st.markdown(f"### 📄 Fonte {i+1}")
+                    st.text(doc.page_content)
+                    st.markdown("---")
+
+def generate_legal_response(question, context):
+    """Gera resposta baseada na legislação"""
+    # SIMULAÇÃO - SUBSTITUA POR SEU MODELO LLM REAL
+    
+    prompt = f"""
+    PERGUNTA DO USUÁRIO: {question}
+    
+    CONTEXTO LEGAL ENCONTRADO:
+    {context}
+    
+    Por favor, forneça uma resposta técnica e precisa baseada exclusivamente no contexto fornecido.
+    """
+    
+    # Resposta simulada - SUBSTITUA ISSO!
+    resposta = f"""
+    **Análise da Consulta:** "{question}"
+
+    **Base Legal Consultada:**
+    Foram analisados {len(context.split('**Documento'))-1} documentos da base legislativa tributária.
+
+    **Resposta Técnica:**
+    Com base na legislação tributária consultada, as informações relevantes foram extraídas dos documentos oficiais. Para uma resposta específica sobre alíquotas, prazos, obrigações acessórias ou procedimentos fiscais, recomenda-se a consulta direta aos artigos e dispositivos legais mencionados nas fontes.
+
+    **Observação:** Esta é uma resposta simulada. Integre com seu modelo LLM para respostas precisas.
+
+    *Fonte: Base de documentos tributários processados.*
+    """
+    
+    return resposta
+
+# Rodar a aplicação
+if __name__ == "__main__":
+    main()
