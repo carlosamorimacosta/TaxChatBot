@@ -1,7 +1,7 @@
-﻿streamlit==1.28.0
-langchain==0.0.350
-pypdf==3.17.0
-sentence-transformers==2.2.2
-chromadb==0.4.15
-python-dotenv==1.0.0
-openai==1.30.0
+streamlit>=1.28.0
+langchain>=0.0.346
+faiss-cpu>=1.7.4
+sentence-transformers>=2.2.2
+PyPDF2>=3.0.0
+pdfplumber>=0.10.0
+python-dotenv>=1.0.0
