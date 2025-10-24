@@ -2,7 +2,7 @@ import streamlit as st
 import PyPDF2
 import pdfplumber
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 import os
 import google.generativeai as genai
