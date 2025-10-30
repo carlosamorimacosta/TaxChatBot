@@ -4,7 +4,14 @@ langchain-text-splitters
 langchain-community
 faiss-cpu>=1.7.4
 sentence-transformers>=2.2.2
+tiktoken
+openai
 PyPDF2>=3.0.0
 pdfplumber>=0.10.0
 python-dotenv>=1.0.0
 google-generativeai>=0.3.0
+python-dotenv>=1.0.0
+pandas
+numpy
+requests
+typing-extensions
