@@ -7,7 +7,15 @@ from langchain_community.vectorstores import FAISS
 import os
 import google.generativeai as genai
 from datetime import datetime
+import os
+from dotenv import load_dotenv
+import google.generativeai as genai
 
+# Carregar variáveis locais (para testes locais)
+load_dotenv()
+
+# Configurar a chave
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("AIzaSyAiZS9q4IZ3TfxI5GCIX8p_g3P_nmHisL4"))
 # Configuração da página
 st.set_page_config(
     page_title="Taxbot FGV - Especialista Tributário",
