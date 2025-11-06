@@ -85,6 +85,17 @@ def load_documents():
 
     print(f"📊 Total de chunks/documentos carregados: {len(documents)}")
     return documents
+def summarize_documents(docs, llm):
+    summaries = []
+    for doc in docs:
+        summary = llm.invoke(f"Resuma brevemente o documento: {doc.page_content[:2000]}")
+        summaries.append({"file": doc.metadata.get("filename"), "summary": summary.content})
+    return summaries
+    
+    if st.button("Gerar resumos"):
+        summaries = summarize_documents(documents, llm)
+    st.json(summaries)
+
 
 
 # -----------------------------
