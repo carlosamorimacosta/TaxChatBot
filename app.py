@@ -33,7 +33,7 @@ class TaxAIChatbot:
         self.setup_gemini()
     
     def setup_gemini(self):
-    """Configura a API do Gemini com modelo rápido"""
+        """Configura a API do Gemini com modelo rápido"""
     try:
         genai.configure(api_key=GEMINI_API_KEY)
         # 🚀 Modelo otimizado para velocidade
