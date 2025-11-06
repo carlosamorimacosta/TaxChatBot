@@ -34,23 +34,23 @@ class TaxAIChatbot:
     
     def setup_gemini(self):
         """Configura a API do Gemini com modelo rápido"""
-    try:
-        genai.configure(api_key=GEMINI_API_KEY)
-        # 🚀 Modelo otimizado para velocidade
-        self.model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",  # antes era gemini-pro
-            generation_config={
-                "temperature": 0.4,         # menor variação = mais rapidez e precisão
-                "top_p": 0.9,
-                "top_k": 40,
-                "max_output_tokens": 2048,  # limita tamanho da resposta = respostas rápidas
-            }
-        )
-        print("✅ Gemini configurado com modelo rápido (1.5-flash)")
-        return True
-    except Exception as e:
-        st.error(f"Erro na configuração do Gemini: {e}")
-        return False
+        try:
+            genai.configure(api_key=GEMINI_API_KEY)
+            # 🚀 Modelo otimizado para velocidade
+            self.model = genai.GenerativeModel(
+                model_name="gemini-1.5-flash",  # antes era gemini-pro
+                generation_config={
+                    "temperature": 0.4,         # menor variação = mais rapidez e precisão
+                    "top_p": 0.9,
+                    "top_k": 40,
+                    "max_output_tokens": 2048,  # limita tamanho da resposta = respostas rápidas
+                }
+            )
+            print("✅ Gemini configurado com modelo rápido (1.5-flash)")
+            return True
+        except Exception as e:
+            st.error(f"Erro na configuração do Gemini: {e}")
+            return False
 
     
     def extract_text_from_pdf(self, pdf_path):
