@@ -33,14 +33,25 @@ class TaxAIChatbot:
         self.setup_gemini()
     
     def setup_gemini(self):
-        """Configura a API do Gemini"""
-        try:
-            genai.configure(api_key=GEMINI_API_KEY)
-            self.model = genai.GenerativeModel('gemini-pro')
-            return True
-        except Exception as e:
-            st.error(f"Erro na configuração do Gemini: {e}")
-            return False
+    """Configura a API do Gemini com modelo rápido"""
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        # 🚀 Modelo otimizado para velocidade
+        self.model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",  # antes era gemini-pro
+            generation_config={
+                "temperature": 0.4,         # menor variação = mais rapidez e precisão
+                "top_p": 0.9,
+                "top_k": 40,
+                "max_output_tokens": 2048,  # limita tamanho da resposta = respostas rápidas
+            }
+        )
+        print("✅ Gemini configurado com modelo rápido (1.5-flash)")
+        return True
+    except Exception as e:
+        st.error(f"Erro na configuração do Gemini: {e}")
+        return False
+
     
     def extract_text_from_pdf(self, pdf_path):
         """Extrai texto de arquivos PDF"""
@@ -171,8 +182,14 @@ class TaxAIChatbot:
         """
         
         try:
-            response = self.model.generate_content(prompt)
-            return response.text
+            
+            response = self.model.generate_content(prompt, safety_settings=[
+    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "block_none"},
+    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "block_none"},
+    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "block_none"},
+])
+            return response.text.strip()
+
         except Exception as e:
             return f"❌ Erro na geração da resposta: {str(e)}"
 
