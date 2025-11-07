@@ -194,9 +194,15 @@ class TaxAIChatbot:
         return docs
 
     def generate_ai_response(self, question, context, conversation_history=[]):
-         """Gera resposta usando Gemini AI com contexto e tratamento de bloqueios"""
+        """Gera resposta usando Gemini AI com contexto e tratamento de bloqueios"""
 
-                 
+        # Reforço automático para perguntas curtas
+        if len(question.strip()) < 10:
+            question = (
+                f"O usuário perguntou: '{question}'. "
+                "Explique o possível significado tributário dessa questão."
+            )
+
         # Histórico da conversa
         history_text = ""
         if conversation_history:
@@ -206,22 +212,22 @@ class TaxAIChatbot:
 
         # Prompt estruturado
         prompt = f"""
-        Você é um especialista em **legislação tributária brasileira**, representando a FGV.
+Você é um especialista em **legislação tributária brasileira**, representando a FGV.
 
-        CONTEXTO LEGAL DISPONÍVEL:
-        {context}
+CONTEXTO LEGAL DISPONÍVEL:
+{context}
 
-        {history_text}
+{history_text}
 
-        PERGUNTA ATUAL: {question}
+PERGUNTA ATUAL: {question}
 
-        INSTRUÇÕES:
-        - Responda de forma técnica, precisa e objetiva.
-        - Cite dispositivos legais relevantes.
-        - Se a resposta não estiver no contexto, diga isso claramente e dê uma explicação geral com base na legislação tributária.
-        - Não emita opiniões pessoais, apenas informações jurídicas e normativas.
-        - Sempre mantenha tom profissional e neutro.
-        """
+INSTRUÇÕES:
+- Responda de forma técnica, precisa e objetiva.
+- Cite dispositivos legais relevantes.
+- Se a resposta não estiver no contexto, diga isso claramente e dê uma explicação geral com base na legislação tributária.
+- Não emita opiniões pessoais, apenas informações jurídicas e normativas.
+- Sempre mantenha tom profissional e neutro.
+"""
 
         try:
             # Verifica se o modelo está configurado
@@ -267,6 +273,7 @@ class TaxAIChatbot:
         except Exception as e:
             st.error(f"⚠️ Erro ao processar resposta do modelo: {e}")
             return f"Erro interno: {e}"
+
 
 
 
