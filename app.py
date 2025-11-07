@@ -209,9 +209,30 @@ class TaxAIChatbot:
         """
         
         try:
+            # 🚀 Verifica se a função de streaming está disponível
+            if hasattr(self.model, "generate_content_stream"):
+                response_text = ""
+                for chunk in self.model.generate_content_stream(prompt):
+                    if hasattr(chunk, "text") and chunk.text:
+                        response_text += chunk.text
+                        st.write(chunk.text, end="")
+                return response_text.strip()
             
-            response = self.model.generate_content(prompt)
-            return response.text.strip()
+            # 🔁 Caso a função de streaming não exista (versões antigas)
+            else:
+                response = self.model.generate_content(prompt)
+                # Algumas versões retornam .text, outras .candidates[0].content.parts[0].text
+                if hasattr(response, "text") and response.text:
+                    return response.text.strip()
+                elif hasattr(response, "candidates"):
+                    return response.candidates[0].content.parts[0].text.strip()
+                else:
+                    return "⚠️ Nenhum texto retornado pela API."
+
+        except Exception as e:
+            st.error(f"❌ Erro na geração da resposta: {str(e)}")
+            return f"Erro interno: {str(e)}"
+
 
 
 
