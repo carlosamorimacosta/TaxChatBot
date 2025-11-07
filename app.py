@@ -195,7 +195,10 @@ class TaxAIChatbot:
 
     def generate_ai_response(self, question, context, conversation_history=[]):
         """Gera resposta usando Gemini AI com contexto específico (compatível com todas as versões da API)"""
-        
+
+        if len(question.strip()) < 10:
+    question = f"O usuário perguntou: '{question}'. Explique o que isso pode significar no contexto da legislação tributária brasileira."
+
         # Prepara o histórico de conversa
         history_text = ""
         if conversation_history:
