@@ -9,7 +9,7 @@ openai
 PyPDF2>=3.0.0
 pdfplumber>=0.10.0
 python-dotenv>=1.0.0
-google-generativeai>=0.3.0
+google-generativeai>=0.5.4
 python-dotenv>=1.0.0
 chromadb>=0.4.24
 pandas
