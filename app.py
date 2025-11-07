@@ -242,42 +242,40 @@ class TaxAIChatbot:
         """
         
         try:
-            # 🔍 Verifica se o modelo está configurado corretamente
-            if not hasattr(self, "model") or self.model is None:
-                st.error("❌ Modelo Gemini não configurado.")
-                return "Erro: modelo não configurado."
-
-            # ⚙️ Chamada padrão — funciona em todas as versões de google-generativeai
-            chat = self.model.start_chat(history=[])
-            response = chat.send_message(prompt)
-
-
-            # 🧩 Compatibilidade com diferentes estruturas de resposta
-            try:
-                if response and hasattr(response, "text") and response.text:
-                    return response.text.strip()
-
-                elif hasattr(response, "candidates") and response.candidates:
-                    candidate = response.candidates[0]
-                    parts = getattr(candidate.content, "parts", [])
-                    if parts and hasattr(parts[0], "text"):
-                        return parts[0].text.strip()
-
-                    # 🕵️ Diagnóstico opcional
-                    finish_reason = getattr(candidate, "finish_reason", "unknown")
-                    print(f"[DEBUG] finish_reason = {finish_reason}")
-                    return f"⚠️ A IA encerrou a resposta antes de gerar texto (finish_reason={finish_reason})."
-
-                else:
-                    return "⚠️ Nenhum texto retornado pela API do Gemini."
-
-            except Exception as e:
-                return f"⚠️ Erro ao processar resposta do modelo: {e}"
-
-
-        except Exception as e:
-            st.error(f"❌ Erro na geração da resposta: {e}")
-            return f"Erro interno: {e}"
+        # 🔍 Verifica se o modelo está configurado corretamente
+        if not hasattr(self, "model") or self.model is None:
+            st.error("❌ Modelo Gemini não configurado.")
+            return "Erro: modelo não configurado."
+    
+        # ⚙️ Chamada padrão — funciona em todas as versões de google-generativeai
+        chat = self.model.start_chat(history=[])
+        response = chat.send_message(prompt)
+    
+        # 🧩 Tratamento completo da resposta
+        text_response = None
+    
+        # 1️⃣ Caso padrão (resposta direta)
+        if hasattr(response, "text") and response.text:
+            text_response = response.text.strip()
+    
+        # 2️⃣ Caso com candidates (API beta)
+        elif hasattr(response, "candidates") and len(response.candidates) > 0:
+            candidate = response.candidates[0]
+            if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
+                parts = candidate.content.parts
+                if parts and hasattr(parts[0], "text"):
+                    text_response = parts[0].text.strip()
+    
+        # 3️⃣ Caso em que a resposta é bloqueada ou incompleta
+        if not text_response:
+            finish_reason = getattr(response.candidates[0], "finish_reason", "unknown")
+            return f"⚠️ O modelo não retornou texto. (finish_reason={finish_reason})"
+    
+        return text_response
+    
+    except Exception as e:
+        st.error(f"⚠️ Erro ao processar resposta do modelo: {e}")
+        return f"Erro interno: {e}"
 
 
 def initialize_system():
