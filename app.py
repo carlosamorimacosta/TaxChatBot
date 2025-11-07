@@ -16,10 +16,19 @@ def load_embeddings():
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 # Carregar variáveis locais (para testes locais)
+from dotenv import load_dotenv
+import os
+import streamlit as st
+import google.generativeai as genai
+
 load_dotenv()
 
-# Configurar a chave
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("AIzaSyAiZS9q4IZ3TfxI5GCIX8p_g3P_nmHisL4"))
+# 🔑 Corrigido — carrega da variável de ambiente OU usa fallback direto
+GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyAiZS9q4IZ3TfxI5GCIX8p_g3P_nmHisL4I")
+
+# Configura o Gemini apenas com a chave válida
+genai.configure(api_key=GEMINI_API_KEY)
+
 # Configuração da página
 st.set_page_config(
     page_title="Taxbot FGV - Especialista Tributário",
