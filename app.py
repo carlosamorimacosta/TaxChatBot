@@ -194,88 +194,88 @@ class TaxAIChatbot:
         return docs
 
     def generate_ai_response(self, question, context, conversation_history=[]):
-    """Gera resposta usando Gemini AI com contexto específico (compatível com todas as versões da API)"""
+        """Gera resposta usando Gemini AI com contexto específico (compatível com todas as versões da API)"""
+        
+        # Prepara o histórico de conversa
+        history_text = ""
+        if conversation_history:
+            history_text = "\nHistórico recente:\n"
+            for msg in conversation_history[-4:]:
+                history_text += f"{msg['role']}: {msg['content']}\n"
+        
+        prompt = f"""
+        VOCÊ É: Um especialista em legislação tributária brasileira, trabalhando para a FGV.
     
-    # Prepara o histórico de conversa
-    history_text = ""
-    if conversation_history:
-        history_text = "\nHistórico recente:\n"
-        for msg in conversation_history[-4:]:
-            history_text += f"{msg['role']}: {msg['content']}\n"
+        CONTEXTO LEGAL DISPONÍVEL:
+        {context}
     
-    prompt = f"""
-    VOCÊ É: Um especialista em legislação tributária brasileira, trabalhando para a FGV.
-
-    CONTEXTO LEGAL DISPONÍVEL:
-    {context}
-
-    {history_text}
-
-    PERGUNTA ATUAL: {question}
+        {history_text}
     
-    INSTRUÇÕES ESPECÍFICAS:
+        PERGUNTA ATUAL: {question}
+        
+        INSTRUÇÕES ESPECÍFICAS:
+        
+        1. **SE A PERGUNTA FOR SOBRE TRIBUTAÇÃO:**
+           - Baseie-se estritamente no contexto fornecido
+           - Cite artigos, leis e dispositivos específicos quando possível
+           - Seja técnico, preciso e atual
+           - Formate a resposta de forma clara com tópicos se necessário
+        
+        2. **SE A PERGUNTA NÃO ENCONTRAR BASE NO CONTEXTO:**
+           - Identifique que a informação específica não está nos documentos carregados
+           - Ofereça uma explicação geral baseada em conhecimentos tributários
+           - Sugira onde o usuário poderia encontrar essa informação
+           - Seja honesto sobre as limitações
+        
+        3. **SE A PERGUNTA FOR FORA DO CONTEXTO TRIBUTÁRIO:**
+           - Eduque gentilmente o usuário sobre o escopo do chatbot
+           - Ofereça redirecionamento para questões tributárias
+           - Mantenha-se profissional e útil
+        
+        4. **FORMATO DA RESPOSTA:**
+           - Seja direto e objetivo
+           - Use marcadores para listas
+           - Destaque termos importantes em **negrito**
+           - Inclua referências quando aplicável
+        
+        RESPOSTA:
+        """
+        
+        try:
+            # 🔍 Verifica se o modelo está configurado corretamente
+            if not hasattr(self, "model") or self.model is None:
+                st.error("❌ Modelo Gemini não configurado.")
+                return "Erro: modelo não configurado."
     
-    1. **SE A PERGUNTA FOR SOBRE TRIBUTAÇÃO:**
-       - Baseie-se estritamente no contexto fornecido
-       - Cite artigos, leis e dispositivos específicos quando possível
-       - Seja técnico, preciso e atual
-       - Formate a resposta de forma clara com tópicos se necessário
+            # ⚙️ Chamada padrão — funciona em todas as versões de google-generativeai
+            chat = self.model.start_chat(history=[])
+            response = chat.send_message(prompt)
     
-    2. **SE A PERGUNTA NÃO ENCONTRAR BASE NO CONTEXTO:**
-       - Identifique que a informação específica não está nos documentos carregados
-       - Ofereça uma explicação geral baseada em conhecimentos tributários
-       - Sugira onde o usuário poderia encontrar essa informação
-       - Seja honesto sobre as limitações
+            # 🧩 Tratamento completo da resposta
+            text_response = None
     
-    3. **SE A PERGUNTA FOR FORA DO CONTEXTO TRIBUTÁRIO:**
-       - Eduque gentilmente o usuário sobre o escopo do chatbot
-       - Ofereça redirecionamento para questões tributárias
-       - Mantenha-se profissional e útil
+            # 1️⃣ Caso padrão (resposta direta)
+            if hasattr(response, "text") and response.text:
+                text_response = response.text.strip()
     
-    4. **FORMATO DA RESPOSTA:**
-       - Seja direto e objetivo
-       - Use marcadores para listas
-       - Destaque termos importantes em **negrito**
-       - Inclua referências quando aplicável
+            # 2️⃣ Caso com candidates (API beta)
+            elif hasattr(response, "candidates") and len(response.candidates) > 0:
+                candidate = response.candidates[0]
+                if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
+                    parts = candidate.content.parts
+                    if parts and hasattr(parts[0], "text"):
+                        text_response = parts[0].text.strip()
     
-    RESPOSTA:
-    """
+            # 3️⃣ Caso em que a resposta é bloqueada ou incompleta
+            if not text_response:
+                finish_reason = getattr(response.candidates[0], "finish_reason", "unknown")
+                return f"⚠️ O modelo não retornou texto. (finish_reason={finish_reason})"
     
-    try:
-        # 🔍 Verifica se o modelo está configurado corretamente
-        if not hasattr(self, "model") or self.model is None:
-            st.error("❌ Modelo Gemini não configurado.")
-            return "Erro: modelo não configurado."
-
-        # ⚙️ Chamada padrão — funciona em todas as versões de google-generativeai
-        chat = self.model.start_chat(history=[])
-        response = chat.send_message(prompt)
-
-        # 🧩 Tratamento completo da resposta
-        text_response = None
-
-        # 1️⃣ Caso padrão (resposta direta)
-        if hasattr(response, "text") and response.text:
-            text_response = response.text.strip()
-
-        # 2️⃣ Caso com candidates (API beta)
-        elif hasattr(response, "candidates") and len(response.candidates) > 0:
-            candidate = response.candidates[0]
-            if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
-                parts = candidate.content.parts
-                if parts and hasattr(parts[0], "text"):
-                    text_response = parts[0].text.strip()
-
-        # 3️⃣ Caso em que a resposta é bloqueada ou incompleta
-        if not text_response:
-            finish_reason = getattr(response.candidates[0], "finish_reason", "unknown")
-            return f"⚠️ O modelo não retornou texto. (finish_reason={finish_reason})"
-
-        return text_response
-
-    except Exception as e:
-        st.error(f"⚠️ Erro ao processar resposta do modelo: {e}")
-        return f"Erro interno: {e}"
+            return text_response
+    
+        except Exception as e:
+            st.error(f"⚠️ Erro ao processar resposta do modelo: {e}")
+            return f"Erro interno: {e}"
 
 
 
