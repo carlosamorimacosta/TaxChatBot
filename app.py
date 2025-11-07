@@ -223,8 +223,16 @@ class TaxAIChatbot:
 
 def initialize_system():
     """Inicializa o sistema completo"""
-    st.title("🤖 Taxadd FGV - Especialista em Tributação")
+    st.title("🤖 Taxad FGV - Especialista em Tributação")
     st.markdown("---")
+
+    # 🔹 Novo: botão de inicialização
+    if st.button("🚀 Iniciar Sistema de IA Tributária"):
+        st.session_state.start_system = True
+
+    if not st.session_state.get("start_system", False):
+        st.info("Clique em **🚀 Iniciar Sistema de IA Tributária** para começar.")
+        st.stop()
     
     if 'chatbot' not in st.session_state:
         st.session_state.chatbot = TaxAIChatbot()
@@ -244,20 +252,25 @@ def initialize_system():
                 return None
             
             # Carrega documentos
-            with st.spinner("📂 Carregando documentos tributários..."):
+            progress = st.progress(0, text="📂 Carregando documentos tributários...")
+            with st.spinner("Carregando PDFs..."):
                 documents = chatbot.load_and_process_documents()
+            progress.progress(40, text="🧠 Criando base de conhecimento...")
                 
-                if not documents:
+            if not documents:
                     st.error("🚫 Não foi possível carregar documentos")
                     return None
                 
-                st.success(f"📚 {len(documents)} documentos carregados")
+            st.success(f"📚 {len(documents)} documentos carregados")
             
             # Cria vector store
             with st.spinner("🧠 Criando base de conhecimento..."):
                 chatbot.vector_store = chatbot.create_vector_store(documents)
                 st.session_state.initialized = True
                 st.success("✅ Sistema de IA inicializado com sucesso!")
+
+            progress.progress(100, text="✅ Sistema pronto!")
+ 
     
     return chatbot
 
