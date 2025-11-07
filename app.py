@@ -269,8 +269,31 @@ class TaxAIChatbot:
             # 3️⃣ Caso em que a resposta é bloqueada ou incompleta
             if not text_response:
                 finish_reason = getattr(response.candidates[0], "finish_reason", "unknown")
+
+                # 🔄 Se o modelo bloqueou a saída (finish_reason == 2)
+                if str(finish_reason) == "2":
+                    st.warning("⚠️ O modelo bloqueou a resposta completa (safety filter).")
+                    # Reenvia a mesma pergunta com reforço de contexto seguro
+                    safe_prompt = (
+                        "Responda de forma informativa e neutra, sem emitir julgamentos, "
+                        "com base apenas em informações legais. "
+                        f"A pergunta é: {question}\n\n"
+                        "Se não houver risco, forneça uma explicação técnica sobre o tema."
+                    )
+                    try:
+                        fallback = self.model.generate_content(safe_prompt)
+                        if hasattr(fallback, "text") and fallback.text:
+                            return fallback.text.strip()
+                        elif hasattr(fallback, "candidates") and len(fallback.candidates) > 0:
+                            parts = fallback.candidates[0].content.parts
+                            if parts and hasattr(parts[0], "text"):
+                                return parts[0].text.strip()
+                    except Exception as fallback_error:
+                        st.error(f"Erro no fallback: {fallback_error}")
+                        return f"⚠️ Nenhuma resposta disponível (bloqueada por política)."
+
                 return f"⚠️ O modelo não retornou texto. (finish_reason={finish_reason})"
-    
+
             return text_response
     
         except Exception as e:
