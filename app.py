@@ -198,8 +198,11 @@ class TaxAIChatbot:
 
         # Reforço automático para perguntas curtas
         if len(question.strip()) < 10:
-            question = f"O usuário perguntou: '{question}'. Explique o possível significado tributário dessa questão."
-
+            question = (
+                f"O usuário perguntou: '{question}'. "
+                "Explique o possível significado tributário dessa questão."
+            )
+            
         # Histórico da conversa
         history_text = ""
         if conversation_history:
