@@ -37,25 +37,40 @@ class TaxAIChatbot:
         self.setup_gemini()
     
     def setup_gemini(self):
-        """Configura a API do Gemini com modelo rápido"""
+        """Configura a API do Gemini com fallback automático para versões mais recentes."""
         try:
             genai.configure(api_key=GEMINI_API_KEY)
-            # 🚀 Modelo otimizado para velocidade
+
+            # Lista os modelos disponíveis na conta
+            available_models = [m.name for m in genai.list_models()]
+
+            # Preferência: tenta o modelo mais novo e rápido
+            if "models/gemini-2.5-flash" in available_models:
+                chosen_model = "models/gemini-2.5-flash"
+            elif "models/gemini-2.5-pro" in available_models:
+                chosen_model = "models/gemini-2.5-pro"
+            elif "models/gemini-pro-latest" in available_models:
+                chosen_model = "models/gemini-pro-latest"
+            else:
+                # fallback de segurança
+                chosen_model = available_models[0] if available_models else "models/gemini-pro"
+
             self.model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",  # antes era gemini-pro
+                model_name=chosen_model,
                 generation_config={
-                    "temperature": 0.4,         # menor variação = mais rapidez e precisão
+                    "temperature": 0.4,
                     "top_p": 0.9,
                     "top_k": 40,
-                    "max_output_tokens": 1024,  # reduz tamanho da resposta = mais rápida
-
+                    "max_output_tokens": 1024,
                 }
             )
-            print("✅ Gemini configurado com modelo rápido (1.5-flash)")
+            print(f"✅ Gemini configurado com modelo rápido ({chosen_model})")
             return True
+
         except Exception as e:
             st.error(f"Erro na configuração do Gemini: {e}")
             return False
+
 
     # 🔹 Cache de extração de texto (evita reprocessar PDFs)
     @st.cache_data
@@ -395,3 +410,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
