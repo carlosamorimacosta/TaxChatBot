@@ -230,7 +230,9 @@ class TaxAIChatbot:
                 return "Erro: modelo não configurado."
 
             # ⚙️ Chamada padrão — funciona em todas as versões de google-generativeai
-            response = self.model.generate_content(prompt)
+            chat = self.model.start_chat(history=[])
+            response = chat.send_message(prompt)
+
 
             # 🧩 Compatibilidade com diferentes estruturas de resposta
             if hasattr(response, "text") and response.text:
