@@ -194,111 +194,79 @@ class TaxAIChatbot:
         return docs
 
     def generate_ai_response(self, question, context, conversation_history=[]):
-        """Gera resposta usando Gemini AI com contexto específico (compatível com todas as versões da API)"""
+         """Gera resposta usando Gemini AI com contexto e tratamento de bloqueios"""
 
+        # Reforço automático para perguntas curtas
         if len(question.strip()) < 10:
-    question = f"O usuário perguntou: '{question}'. Explique o que isso pode significar no contexto da legislação tributária brasileira."
+            question = f"O usuário perguntou: '{question}'. Explique o possível significado tributário dessa questão."
 
-        # Prepara o histórico de conversa
+        # Histórico da conversa
         history_text = ""
         if conversation_history:
             history_text = "\nHistórico recente:\n"
             for msg in conversation_history[-4:]:
                 history_text += f"{msg['role']}: {msg['content']}\n"
-        
+
+        # Prompt estruturado
         prompt = f"""
-        VOCÊ É: Um especialista em legislação tributária brasileira, trabalhando para a FGV.
-    
+        Você é um especialista em **legislação tributária brasileira**, representando a FGV.
+
         CONTEXTO LEGAL DISPONÍVEL:
         {context}
-    
+
         {history_text}
-    
+
         PERGUNTA ATUAL: {question}
-        
-        INSTRUÇÕES ESPECÍFICAS:
-        
-        1. **SE A PERGUNTA FOR SOBRE TRIBUTAÇÃO:**
-           - Baseie-se estritamente no contexto fornecido
-           - Cite artigos, leis e dispositivos específicos quando possível
-           - Seja técnico, preciso e atual
-           - Formate a resposta de forma clara com tópicos se necessário
-        
-        2. **SE A PERGUNTA NÃO ENCONTRAR BASE NO CONTEXTO:**
-           - Identifique que a informação específica não está nos documentos carregados
-           - Ofereça uma explicação geral baseada em conhecimentos tributários
-           - Sugira onde o usuário poderia encontrar essa informação
-           - Seja honesto sobre as limitações
-        
-        3. **SE A PERGUNTA FOR FORA DO CONTEXTO TRIBUTÁRIO:**
-           - Eduque gentilmente o usuário sobre o escopo do chatbot
-           - Ofereça redirecionamento para questões tributárias
-           - Mantenha-se profissional e útil
-        
-        4. **FORMATO DA RESPOSTA:**
-           - Seja direto e objetivo
-           - Use marcadores para listas
-           - Destaque termos importantes em **negrito**
-           - Inclua referências quando aplicável
-        
-        RESPOSTA:
+
+        INSTRUÇÕES:
+        - Responda de forma técnica, precisa e objetiva.
+        - Cite dispositivos legais relevantes.
+        - Se a resposta não estiver no contexto, diga isso claramente e dê uma explicação geral com base na legislação tributária.
+        - Não emita opiniões pessoais, apenas informações jurídicas e normativas.
+        - Sempre mantenha tom profissional e neutro.
         """
-        
+
         try:
-            # 🔍 Verifica se o modelo está configurado corretamente
+            # Verifica se o modelo está configurado
             if not hasattr(self, "model") or self.model is None:
                 st.error("❌ Modelo Gemini não configurado.")
                 return "Erro: modelo não configurado."
-    
-            # ⚙️ Chamada padrão — funciona em todas as versões de google-generativeai
-            chat = self.model.start_chat(history=[])
-            response = chat.send_message(prompt)
-    
-            # 🧩 Tratamento completo da resposta
-            text_response = None
-    
-            # 1️⃣ Caso padrão (resposta direta)
+
+            # Chama o modelo Gemini
+            response = self.model.generate_content(prompt)
+
+            # 🔎 Verifica se veio texto direto
             if hasattr(response, "text") and response.text:
-                text_response = response.text.strip()
-    
-            # 2️⃣ Caso com candidates (API beta)
-            elif hasattr(response, "candidates") and len(response.candidates) > 0:
+                return response.text.strip()
+
+            # 🧩 Caso o modelo use 'candidates'
+            if hasattr(response, "candidates") and len(response.candidates) > 0:
                 candidate = response.candidates[0]
-                if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
-                    parts = candidate.content.parts
-                    if parts and hasattr(parts[0], "text"):
-                        text_response = parts[0].text.strip()
-    
-            # 3️⃣ Caso em que a resposta é bloqueada ou incompleta
-            if not text_response:
-                finish_reason = getattr(response.candidates[0], "finish_reason", "unknown")
+                finish_reason = getattr(candidate, "finish_reason", None)
 
-                # 🔄 Se o modelo bloqueou a saída (finish_reason == 2)
+                # ✅ Caso normal — resposta presente
+                if candidate.content and hasattr(candidate.content.parts[0], "text"):
+                    return candidate.content.parts[0].text.strip()
+
+                # ⚠️ Caso bloqueado por safety (finish_reason == 2)
                 if str(finish_reason) == "2":
-                    st.warning("⚠️ O modelo bloqueou a resposta completa (safety filter).")
-                    # Reenvia a mesma pergunta com reforço de contexto seguro
+                    st.warning("⚠️ Resposta bloqueada pelo filtro de segurança. Reenviando com prompt seguro...")
                     safe_prompt = (
-                        "Responda de forma informativa e neutra, sem emitir julgamentos, "
-                        "com base apenas em informações legais. "
-                        f"A pergunta é: {question}\n\n"
-                        "Se não houver risco, forneça uma explicação técnica sobre o tema."
+                        f"Responda de forma neutra e informativa, sem emitir julgamentos ou conselhos. "
+                        f"Apenas explique o conceito tributário de forma didática. Pergunta: {question}"
                     )
-                    try:
-                        fallback = self.model.generate_content(safe_prompt)
-                        if hasattr(fallback, "text") and fallback.text:
-                            return fallback.text.strip()
-                        elif hasattr(fallback, "candidates") and len(fallback.candidates) > 0:
-                            parts = fallback.candidates[0].content.parts
-                            if parts and hasattr(parts[0], "text"):
-                                return parts[0].text.strip()
-                    except Exception as fallback_error:
-                        st.error(f"Erro no fallback: {fallback_error}")
-                        return f"⚠️ Nenhuma resposta disponível (bloqueada por política)."
+                    safe_response = self.model.generate_content(safe_prompt)
+                    if hasattr(safe_response, "text") and safe_response.text:
+                        return safe_response.text.strip()
+                    elif hasattr(safe_response, "candidates") and len(safe_response.candidates) > 0:
+                        parts = safe_response.candidates[0].content.parts
+                        if parts and hasattr(parts[0], "text"):
+                            return parts[0].text.strip()
+                    return "⚠️ O modelo não pôde responder por razões de segurança."
 
-                return f"⚠️ O modelo não retornou texto. (finish_reason={finish_reason})"
+            # 🧱 Caso nenhuma resposta válida tenha sido retornada
+            return "⚠️ O modelo não retornou conteúdo legível."
 
-            return text_response
-    
         except Exception as e:
             st.error(f"⚠️ Erro ao processar resposta do modelo: {e}")
             return f"Erro interno: {e}"
