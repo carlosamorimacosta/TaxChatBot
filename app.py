@@ -161,23 +161,23 @@ class TaxAIChatbot:
         return docs
 
     def generate_ai_response(self, question, context, conversation_history=[]):
-        """Gera resposta usando Gemini AI com contexto específico"""
+        """Gera resposta usando Gemini AI com contexto específico (compatível com todas as versões da API)"""
         
         # Prepara o histórico de conversa
         history_text = ""
         if conversation_history:
             history_text = "\nHistórico recente:\n"
-            for msg in conversation_history[-4:]:  # Últimas 4 mensagens
+            for msg in conversation_history[-4:]:
                 history_text += f"{msg['role']}: {msg['content']}\n"
         
         prompt = f"""
         VOCÊ É: Um especialista em legislação tributária brasileira, trabalhando para a FGV.
-        
+
         CONTEXTO LEGAL DISPONÍVEL:
         {context}
-        
+
         {history_text}
-        
+
         PERGUNTA ATUAL: {question}
         
         INSTRUÇÕES ESPECÍFICAS:
@@ -209,35 +209,28 @@ class TaxAIChatbot:
         """
         
         try:
-            # 🚀 Verifica se a função de streaming está disponível
-            if hasattr(self.model, "generate_content_stream"):
-                response_text = ""
-                for chunk in self.model.generate_content_stream(prompt):
-                    if hasattr(chunk, "text") and chunk.text:
-                        response_text += chunk.text
-                        st.write(chunk.text, end="")
-                return response_text.strip()
-            
-            # 🔁 Caso a função de streaming não exista (versões antigas)
+            # 🔍 Verifica se o modelo está configurado corretamente
+            if not hasattr(self, "model") or self.model is None:
+                st.error("❌ Modelo Gemini não configurado.")
+                return "Erro: modelo não configurado."
+
+            # ⚙️ Chamada padrão — funciona em todas as versões de google-generativeai
+            response = self.model.generate_content(prompt)
+
+            # 🧩 Compatibilidade com diferentes estruturas de resposta
+            if hasattr(response, "text") and response.text:
+                return response.text.strip()
+            elif hasattr(response, "candidates") and len(response.candidates) > 0:
+                parts = response.candidates[0].content.parts
+                if parts and hasattr(parts[0], "text"):
+                    return parts[0].text.strip()
             else:
-                response = self.model.generate_content(prompt)
-                # Algumas versões retornam .text, outras .candidates[0].content.parts[0].text
-                if hasattr(response, "text") and response.text:
-                    return response.text.strip()
-                elif hasattr(response, "candidates"):
-                    return response.candidates[0].content.parts[0].text.strip()
-                else:
-                    return "⚠️ Nenhum texto retornado pela API."
+                return "⚠️ A API não retornou texto na resposta."
 
         except Exception as e:
-            st.error(f"❌ Erro na geração da resposta: {str(e)}")
-            return f"Erro interno: {str(e)}"
+            st.error(f"❌ Erro na geração da resposta: {e}")
+            return f"Erro interno: {e}"
 
-
-
-
-        except Exception as e:
-            return f"❌ Erro na geração da resposta: {str(e)}"
 
 def initialize_system():
     """Inicializa o sistema completo"""
