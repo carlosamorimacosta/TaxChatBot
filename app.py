@@ -210,12 +210,9 @@ class TaxAIChatbot:
         
         try:
             
-            response_text = ""
-            for chunk in self.model.generate_content_stream(prompt):
-                if chunk.text:
-                    response_text += chunk.text
-                    st.write(chunk.text, end="")  # mostra partes conforme chegam   
-            return response_text.strip()
+            response = self.model.generate_content(prompt)
+            return response.text.strip()
+
 
 
         except Exception as e:
