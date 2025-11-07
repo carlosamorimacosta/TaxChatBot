@@ -52,9 +52,10 @@ class TaxAIChatbot:
             elif "models/gemini-pro-latest" in available_models:
                 chosen_model = "models/gemini-pro-latest"
             else:
-                # fallback de segurança
+                # Fallback de segurança
                 chosen_model = available_models[0] if available_models else "models/gemini-pro"
 
+            # Cria o modelo
             self.model = genai.GenerativeModel(
                 model_name=chosen_model,
                 generation_config={
@@ -64,12 +65,20 @@ class TaxAIChatbot:
                     "max_output_tokens": 1024,
                 }
             )
+
+            # ✅ Patch de compatibilidade temporário (corrige o erro 'generate_content_stream')
+            if not hasattr(self.model, "generate_content_stream"):
+                def _no_stream(*args, **kwargs):
+                    return self.model.generate_content(*args, **kwargs)
+                self.model.generate_content_stream = _no_stream
+
             print(f"✅ Gemini configurado com modelo rápido ({chosen_model})")
             return True
 
         except Exception as e:
             st.error(f"Erro na configuração do Gemini: {e}")
             return False
+
 
 
     # 🔹 Cache de extração de texto (evita reprocessar PDFs)
@@ -251,7 +260,7 @@ class TaxAIChatbot:
 
 def initialize_system():
     """Inicializa o sistema completo"""
-    st.title("🤖 Taxad FGV - Especialista em Tributação")
+    st.title("🤖 TaxBot FGV - Especialista na Reforma do IRPF")
     st.markdown("---")
 
     # 🔹 Novo: botão de inicialização
