@@ -3,13 +3,17 @@ import PyPDF2
 import pdfplumber
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores import Chroma
 import os
 import google.generativeai as genai
 from datetime import datetime
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
+
+@st.cache_resource
+def load_embeddings():
+    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 # Carregar variáveis locais (para testes locais)
 load_dotenv()
@@ -43,7 +47,8 @@ class TaxAIChatbot:
                     "temperature": 0.4,         # menor variação = mais rapidez e precisão
                     "top_p": 0.9,
                     "top_k": 40,
-                    "max_output_tokens": 2048,  # limita tamanho da resposta = respostas rápidas
+                    "max_output_tokens": 1024,  # reduz tamanho da resposta = mais rápida
+
                 }
             )
             print("✅ Gemini configurado com modelo rápido (1.5-flash)")
@@ -52,7 +57,27 @@ class TaxAIChatbot:
             st.error(f"Erro na configuração do Gemini: {e}")
             return False
 
-    
+    # 🔹 Cache de extração de texto (evita reprocessar PDFs)
+    @st.cache_data
+    def extract_text_from_pdf_cached(pdf_path):
+        """Extrai texto de um PDF e mantém resultado em cache"""
+        import pdfplumber, PyPDF2
+        text = ""
+        try:
+            with pdfplumber.open(pdf_path) as pdf:
+                for page in pdf.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+        except Exception:
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+        return text
+
     def extract_text_from_pdf(self, pdf_path):
         """Extrai texto de arquivos PDF"""
         text = ""
@@ -119,10 +144,12 @@ class TaxAIChatbot:
             chunks.extend(text_splitter.split_text(text))
         
         embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            cache_folder="./models"
         )
+
         
-        vector_store = FAISS.from_texts(chunks, embeddings)
+        vector_store = Chroma.from_texts(chunks, embeddings)
         return vector_store
 
     def search_relevant_documents(self, question, k=5):
@@ -183,19 +210,20 @@ class TaxAIChatbot:
         
         try:
             
-            response = self.model.generate_content(prompt, safety_settings=[
-    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "block_none"},
-    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "block_none"},
-    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "block_none"},
-])
-            return response.text.strip()
+            response_text = ""
+            for chunk in self.model.generate_content_stream(prompt):
+                if chunk.text:
+                    response_text += chunk.text
+                    st.write(chunk.text, end="")  # mostra partes conforme chegam   
+            return response_text.strip()
+
 
         except Exception as e:
             return f"❌ Erro na geração da resposta: {str(e)}"
 
 def initialize_system():
     """Inicializa o sistema completo"""
-    st.title("🤖 Tax Chatbot FGV - Especialista em Tributação")
+    st.title("🤖 Taxadd FGV - Especialista em Tributação")
     st.markdown("---")
     
     if 'chatbot' not in st.session_state:
