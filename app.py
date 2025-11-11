@@ -296,6 +296,26 @@ def initialize_system():
     
     st.markdown("<br>", unsafe_allow_html=True)  # espaçamento visual
 
+    #animação
+    st.markdown("""
+    <style>
+    div.stButton > button:first-child {
+        background-color: #2563eb;
+        color: white;
+        border-radius: 10px;
+        height: 3em;
+        width: 100%;
+        font-weight: 600;
+        transition: 0.3s;
+        border: none;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #1e40af;
+        transform: scale(1.03);
+        box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     # 🔹 Novo: botão de inicialização
     if st.button("🚀 Iniciar Sistema de IA Tributária"):
