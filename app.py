@@ -162,36 +162,66 @@ class TaxAIChatbot:
     def create_vector_store(self, documents):
         """Cria o vector store para busca semântica"""
         if not documents:
+            st.error("Nenhum documento para indexar.")
             return None
-        
-        texts = [doc['content'] for doc in documents]
-        
+    
+        # ✅ Combina todos os textos
+        texts = [doc['content'] for doc in documents if len(doc['content'].strip()) > 50]
+    
+        # ✅ Divide os textos em blocos
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=150,
+            chunk_size=1200,
+            chunk_overlap=200,
             length_function=len
         )
-        
         chunks = []
         for text in texts:
-            chunks.extend(text_splitter.split_text(text))
-        
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            cache_folder="./models"
-        )
+            pieces = text_splitter.split_text(text)
+            chunks.extend(pieces)
+    
+        st.write(f"🧩 {len(chunks)} blocos de texto criados para embeddings.")
+    
+        # ✅ Cria embeddings e base vetorial
+        try:
+            embeddings = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                cache_folder="./models"
+            )
+    
+            persist_dir = "./chroma_db"
+            os.makedirs(persist_dir, exist_ok=True)
+    
+            vector_store = Chroma.from_texts(
+                texts=chunks,
+                embedding=embeddings,
+                persist_directory=persist_dir
+            )
+            vector_store.persist()
+            st.success("✅ Base vetorial criada e salva com sucesso!")
+            return vector_store
+    
+        except Exception as e:
+            st.error(f"❌ Erro ao criar embeddings: {e}")
+            return None
 
-        
-        vector_store = Chroma.from_texts(chunks, embeddings)
-        return vector_store
 
     def search_relevant_documents(self, question, k=5):
         """Busca documentos relevantes para a pergunta"""
         if not self.vector_store:
+            st.error("❌ Base vetorial não inicializada.")
             return []
-        
-        docs = self.vector_store.similarity_search(question, k=k)
-        return docs
+    
+        try:
+            results = self.vector_store.similarity_search(question, k=k)
+            if not results:
+                st.warning("⚠️ Nenhum trecho relevante encontrado.")
+            else:
+                st.info(f"📄 {len(results)} trechos relevantes localizados.")
+            return results
+        except Exception as e:
+            st.error(f"Erro na busca semântica: {e}")
+            return []
+
 
     def generate_ai_response(self, question, context, conversation_history=[]):
         """Gera resposta usando Gemini AI com contexto e tratamento de bloqueios"""
