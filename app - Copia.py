@@ -280,7 +280,42 @@ INSTRUÇÕES:
 def initialize_system():
     """Inicializa o sistema completo"""
     st.title("🤖 TaxBot FGV - Especialista na Reforma do IRPF")
-    st.markdown("---")
+    # 🔷 Painel de boas-vindas
+    st.markdown("""
+    <div style="text-align: center; padding: 20px; border-radius: 15px; background-color: #111827; color: #f0f0f0;">
+        <h2>🤖 <b>Bem-vindo ao TaxBot FGV</b></h2>
+        <p style="font-size: 16px;">
+            Seu assistente de <b>consultoria tributária inteligente</b>, desenvolvido para responder com base na 
+            <b>legislação brasileira atualizada</b>.
+        </p>
+        <p style="font-size: 15px; color: #9ca3af;">
+            📘 Carregue documentos tributários e consulte dúvidas sobre IRPF, Simples Nacional, Lucro Real e muito mais.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)  # espaçamento visual
+
+    #animação
+    st.markdown("""
+    <style>
+    div.stButton > button:first-child {
+        background-color: #2563eb;
+        color: white;
+        border-radius: 10px;
+        height: 3em;
+        width: 100%;
+        font-weight: 600;
+        transition: 0.3s;
+        border: none;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #1e40af;
+        transform: scale(1.03);
+        box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     # 🔹 Novo: botão de inicialização
     if st.button("🚀 Iniciar Sistema de IA Tributária"):
