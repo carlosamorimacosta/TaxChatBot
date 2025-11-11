@@ -222,6 +222,56 @@ class TaxAIChatbot:
             st.error(f"Erro na busca semântica: {e}")
             return []
 
+    def rerank_results(self, question, results, embeddings):
+        """Reordena resultados usando cosine similarity entre query e textos retornados."""
+        try:
+            # extrai textos dos resultados (ajuste conforme estrutura do objeto retornado pelo Chroma)
+            doc_texts = []
+            for r in results:
+                # se for objeto com page_content (langchain), ou simples string
+                if hasattr(r, "page_content"):
+                    doc_texts.append(r.page_content)
+                elif isinstance(r, dict) and "page_content" in r:
+                    doc_texts.append(r["page_content"])
+                elif isinstance(r, str):
+                    doc_texts.append(r)
+                else:
+                    # tenta acessar .metadata / .content
+                    doc_texts.append(str(r))
+
+            # calcula vetores
+            # HuggingFaceEmbeddings pode ter embed_query ou embed_documents
+            if hasattr(embeddings, "embed_query"):
+                q_vec = embeddings.embed_query(question)
+                doc_vecs = embeddings.embed_documents(doc_texts)
+            else:
+                # fallback genérico
+                doc_vecs = embeddings.embed_documents(doc_texts)
+                # para q_vec usamos embed_documents em lista de 1
+                q_vec = embeddings.embed_documents([question])[0]
+
+            # cosine similarity (manual)
+            import numpy as np
+            from numpy.linalg import norm
+
+            sims = []
+            for dv in doc_vecs:
+                dv_arr = np.array(dv, dtype=float)
+                q_arr = np.array(q_vec, dtype=float)
+                denom = (norm(dv_arr) * norm(q_arr))
+                sim = float(np.dot(q_arr, dv_arr) / denom) if denom != 0 else 0.0
+                sims.append(sim)
+
+            # ordenar índices decrescentes
+            idx_sorted = list(sorted(range(len(sims)), key=lambda i: sims[i], reverse=True))
+            reranked = [results[i] for i in idx_sorted]
+            return reranked
+
+        except Exception as e:
+            st.warning(f"Rerank falhou: {e}")
+            return results
+
+
 
     def generate_ai_response(self, question, context, conversation_history=[]):
         """Gera resposta usando Gemini AI com contexto e tratamento de bloqueios"""
