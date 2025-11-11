@@ -296,10 +296,6 @@ def initialize_system():
     
     st.markdown("<br>", unsafe_allow_html=True)  # espaçamento visual
 
-# 🔹 Botão de inicialização
-if st.button("🚀 Iniciar Sistema de IA Tributária"):
-    st.session_state.start_system = True
-
 
     # 🔹 Novo: botão de inicialização
     if st.button("🚀 Iniciar Sistema de IA Tributária"):
