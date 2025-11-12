@@ -162,36 +162,116 @@ class TaxAIChatbot:
     def create_vector_store(self, documents):
         """Cria o vector store para busca semântica"""
         if not documents:
+            st.error("Nenhum documento para indexar.")
             return None
-        
-        texts = [doc['content'] for doc in documents]
-        
+    
+        # ✅ Combina todos os textos
+        texts = [doc['content'] for doc in documents if len(doc['content'].strip()) > 50]
+    
+        # ✅ Divide os textos em blocos
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=150,
+            chunk_size=1200,
+            chunk_overlap=200,
             length_function=len
         )
-        
         chunks = []
         for text in texts:
-            chunks.extend(text_splitter.split_text(text))
-        
-        embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2",
-            cache_folder="./models"
-        )
+            pieces = text_splitter.split_text(text)
+            chunks.extend(pieces)
+    
+        st.write(f"🧩 {len(chunks)} blocos de texto criados para embeddings.")
+    
+        # ✅ Cria embeddings e base vetorial
+        try:
+            embeddings = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                cache_folder="./models"
+            )
+    
+            persist_dir = "./chroma_db"
+            os.makedirs(persist_dir, exist_ok=True)
+    
+            vector_store = Chroma.from_texts(
+                texts=chunks,
+                embedding=embeddings,
+                persist_directory=persist_dir
+            )
+            vector_store.persist()
+            st.success("✅ Base vetorial criada e salva com sucesso!")
+            return vector_store
+    
+        except Exception as e:
+            st.error(f"❌ Erro ao criar embeddings: {e}")
+            return None
 
-        
-        vector_store = Chroma.from_texts(chunks, embeddings)
-        return vector_store
 
     def search_relevant_documents(self, question, k=5):
         """Busca documentos relevantes para a pergunta"""
         if not self.vector_store:
+            st.error("❌ Base vetorial não inicializada.")
             return []
-        
-        docs = self.vector_store.similarity_search(question, k=k)
-        return docs
+    
+        try:
+            results = self.vector_store.similarity_search(question, k=k)
+            if not results:
+                st.warning("⚠️ Nenhum trecho relevante encontrado.")
+            else:
+                st.info(f"📄 {len(results)} trechos relevantes localizados.")
+            return results
+        except Exception as e:
+            st.error(f"Erro na busca semântica: {e}")
+            return []
+
+    def rerank_results(self, question, results, embeddings):
+        """Reordena resultados usando cosine similarity entre query e textos retornados."""
+        try:
+            # extrai textos dos resultados (ajuste conforme estrutura do objeto retornado pelo Chroma)
+            doc_texts = []
+            for r in results:
+                # se for objeto com page_content (langchain), ou simples string
+                if hasattr(r, "page_content"):
+                    doc_texts.append(r.page_content)
+                elif isinstance(r, dict) and "page_content" in r:
+                    doc_texts.append(r["page_content"])
+                elif isinstance(r, str):
+                    doc_texts.append(r)
+                else:
+                    # tenta acessar .metadata / .content
+                    doc_texts.append(str(r))
+
+            # calcula vetores
+            # HuggingFaceEmbeddings pode ter embed_query ou embed_documents
+            if hasattr(embeddings, "embed_query"):
+                q_vec = embeddings.embed_query(question)
+                doc_vecs = embeddings.embed_documents(doc_texts)
+            else:
+                # fallback genérico
+                doc_vecs = embeddings.embed_documents(doc_texts)
+                # para q_vec usamos embed_documents em lista de 1
+                q_vec = embeddings.embed_documents([question])[0]
+
+            # cosine similarity (manual)
+            import numpy as np
+            from numpy.linalg import norm
+
+            sims = []
+            for dv in doc_vecs:
+                dv_arr = np.array(dv, dtype=float)
+                q_arr = np.array(q_vec, dtype=float)
+                denom = (norm(dv_arr) * norm(q_arr))
+                sim = float(np.dot(q_arr, dv_arr) / denom) if denom != 0 else 0.0
+                sims.append(sim)
+
+            # ordenar índices decrescentes
+            idx_sorted = list(sorted(range(len(sims)), key=lambda i: sims[i], reverse=True))
+            reranked = [results[i] for i in idx_sorted]
+            return reranked
+
+        except Exception as e:
+            st.warning(f"Rerank falhou: {e}")
+            return results
+
+
 
     def generate_ai_response(self, question, context, conversation_history=[]):
         """Gera resposta usando Gemini AI com contexto e tratamento de bloqueios"""
