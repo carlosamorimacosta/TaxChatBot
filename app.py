@@ -71,7 +71,7 @@ class TaxAIChatbot:
                     "temperature": 0.4,
                     "top_p": 0.9,
                     "top_k": 40,
-                    "max_output_tokens": 2048,
+                    "max_output_tokens": 4096,
                 }
             )
 
