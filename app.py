@@ -194,11 +194,14 @@ class TaxAIChatbot:
         texts = [doc['content'] for doc in documents if len(doc['content'].strip()) > 50]
     
         # ✅ Divide os textos em blocos
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1200,
+            separators=["\n\n", ".", "!", "?", ";", ":", "\n", " "],
+            chunk_size=1500,
             chunk_overlap=200,
             length_function=len
         )
+
         chunks = []
         for text in texts:
             pieces = text_splitter.split_text(text)
