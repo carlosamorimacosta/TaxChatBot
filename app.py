@@ -212,18 +212,12 @@ class TaxAIChatbot:
         # ✅ Cria embeddings e base vetorial
         try:
             embeddings = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-mpnet-base-v2",
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
                 cache_folder="./models"
             )
     
             persist_dir = "./chroma_db"
             os.makedirs(persist_dir, exist_ok=True)
-
-            chunks = [c for c in chunks if c.strip()]
-
-            import shutil
-            if os.path.exists("./chroma_db"):
-                shutil.rmtree("./chroma_db")
 
 
             vector_store = Chroma.from_texts(
