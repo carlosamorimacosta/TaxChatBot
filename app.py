@@ -221,6 +221,11 @@ class TaxAIChatbot:
 
             chunks = [c for c in chunks if c.strip()]
 
+            import shutil
+            if os.path.exists("./chroma_db"):
+                shutil.rmtree("./chroma_db")
+
+
             vector_store = Chroma.from_texts(
                 texts=chunks,
                 embedding=embeddings,
