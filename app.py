@@ -112,26 +112,48 @@ class TaxAIChatbot:
         return text
 
     def extract_text_from_pdf(self, pdf_path):
-        """Extrai texto de arquivos PDF"""
+        """Extrai texto de arquivos PDF com tratamento para tabelas e limpeza de formatação"""
+        import pdfplumber
+        import PyPDF2
+        import re
         text = ""
+    
         try:
             with pdfplumber.open(pdf_path) as pdf:
                 for page_num, page in enumerate(pdf.pages):
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
+                    # Extrai texto normal
+                    page_text = page.extract_text() or ""
+    
+                    # Extrai tabelas (se houver)
+                    tables = page.extract_tables()
+                    if tables:
+                        for table in tables:
+                            # Junta células com espaço e linhas com \n
+                            table_text = "\n".join([" | ".join(row) for row in table if any(row)])
+                            page_text += "\n\n[TABELA DETECTADA]\n" + table_text + "\n"
+    
+                    # Limpeza de formatação
+                    page_text = re.sub(r'\s+', ' ', page_text)  # remove quebras de linha e espaços extras
+                    page_text = page_text.replace("‐", "-")      # substitui traços especiais
+    
+                    if len(page_text.strip()) > 20:
+                        text += page_text.strip() + "\n\n"
+    
         except Exception as e:
+            st.warning(f"⚠️ Falha com pdfplumber ({os.path.basename(pdf_path)}): {e}")
+            # Fallback leve com PyPDF2
             try:
-                with open(pdf_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
-                    for page in pdf_reader.pages:
+                with open(pdf_path, "rb") as file:
+                    reader = PyPDF2.PdfReader(file)
+                    for page in reader.pages:
                         page_text = page.extract_text()
                         if page_text:
-                            text += page_text + "\n"
+                            text += re.sub(r'\s+', ' ', page_text) + "\n"
             except Exception as e2:
-                st.error(f"Erro no PDF {os.path.basename(pdf_path)}: {e2}")
+                st.error(f"❌ Erro ao extrair texto com PyPDF2: {e2}")
                 return ""
-        return text
+    
+        return text.strip()
 
     def load_and_process_documents(self):
         """Carrega e processa todos os PDFs"""
