@@ -212,7 +212,7 @@ class TaxAIChatbot:
         # ✅ Cria embeddings e base vetorial
         try:
             embeddings = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_name="sentence-transformers/all-mpnet-base-v2",
                 cache_folder="./models"
             )
     
