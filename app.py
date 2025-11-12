@@ -129,7 +129,10 @@ class TaxAIChatbot:
                     if tables:
                         for table in tables:
                             # Junta células com espaço e linhas com \n
-                            table_text = "\n".join([" | ".join(row) for row in table if any(row)])
+                            table_text = "\n".join([
+                                " | ".join([str(cell) if cell is not None else "" for cell in row])
+                                for row in table if any(row)
+                            ])
                             page_text += "\n\n[TABELA DETECTADA]\n" + table_text + "\n"
     
                     # Limpeza de formatação
