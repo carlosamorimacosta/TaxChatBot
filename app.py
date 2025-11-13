@@ -378,39 +378,39 @@ class TaxAIChatbot:
 
 
 
-        def generate_ai_response(self, question, context, conversation_history=[]):
-            """Gera resposta usando Gemini AI com contexto, fallback seguro e busca na web se necessário"""
-    
-            # Reforço automático para perguntas curtas
-            if not question or len(question.strip()) < 10:
-                question = (
-                    f"O usuário perguntou: '{question}'. "
-                    "Explique o possível significado tributário dessa questão."
-                )
-    
-            # Histórico da conversa
-            history_text = ""
-            if conversation_history:
-                history_text = "\nHistórico recente:\n"
-                for msg in conversation_history[-4:]:
-                    history_text += f"{msg['role']}: {msg['content']}\n"
-    
-            # 🔍 Busca opcional na internet se a pergunta for sobre algo recente
-            if any(term in question.lower() for term in ["2024", "2025", "atual", "reforma", "nova lei", "mudança", "últimas"]):
-                try:
-                    st.info("🌐 Buscando informações atualizadas na internet...")
-                    web_results = self.web_search(question)
-                    if web_results and "⚠️" not in web_results:
-                        context += f"\n\n📡 INFORMAÇÕES ATUALIZADAS (WEB):\n{web_results}"
-                    else:
-                        st.warning("Nenhum resultado recente encontrado na web.")
-                except Exception as e:
-                    st.warning(f"Falha na busca web: {e}")
-    
-            # 🔐 Segurança e robustez — garante que o modelo existe
-            if not hasattr(self, "model") or self.model is None:
-                st.error("❌ O modelo Gemini não foi inicializado corretamente.")
-                return "Erro: o modelo Gemini não está configurado. Verifique sua API Key e reinicie o sistema."
+    def generate_ai_response(self, question, context, conversation_history=[]):
+        """Gera resposta usando Gemini AI com contexto, fallback seguro e busca na web se necessário"""
+
+        # Reforço automático para perguntas curtas
+        if not question or len(question.strip()) < 10:
+            question = (
+                f"O usuário perguntou: '{question}'. "
+                "Explique o possível significado tributário dessa questão."
+            )
+
+        # Histórico da conversa
+        history_text = ""
+        if conversation_history:
+            history_text = "\nHistórico recente:\n"
+            for msg in conversation_history[-4:]:
+                history_text += f"{msg['role']}: {msg['content']}\n"
+
+        # 🔍 Busca opcional na internet se a pergunta for sobre algo recente
+        if any(term in question.lower() for term in ["2024", "2025", "atual", "reforma", "nova lei", "mudança", "últimas"]):
+            try:
+                st.info("🌐 Buscando informações atualizadas na internet...")
+                web_results = self.web_search(question)
+                if web_results and "⚠️" not in web_results:
+                    context += f"\n\n📡 INFORMAÇÕES ATUALIZADAS (WEB):\n{web_results}"
+                else:
+                    st.warning("Nenhum resultado recente encontrado na web.")
+            except Exception as e:
+                st.warning(f"Falha na busca web: {e}")
+
+        # 🔐 Segurança e robustez — garante que o modelo existe
+        if not hasattr(self, "model") or self.model is None:
+            st.error("❌ O modelo Gemini não foi inicializado corretamente.")
+            return "Erro: o modelo Gemini não está configurado. Verifique sua API Key e reinicie o sistema."
     
             # Prompt estruturado
             prompt = f"""
