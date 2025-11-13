@@ -543,7 +543,7 @@ def main():
         with st.chat_message("assistant"):
             with st.spinner("🔍 Consultando legislação..."):
                 # Busca documentos relevantes
-                relevant_docs = chatbot.search_relevant_documents(question, k=search_depth)
+                relevant_docs = chatbot.search_relevant_documents(question, k=10)
                 
                 if relevant_docs:
                     context = "\n\n".join([f"📄 Documento {i+1}:\n{doc.page_content}" 
