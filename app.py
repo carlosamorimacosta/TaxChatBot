@@ -24,7 +24,7 @@ import google.generativeai as genai
 load_dotenv()
 
 # 🔑 Corrigido — carrega da variável de ambiente OU usa fallback direto
-GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyAiZS9q4IZ3TfxI5GCIX8p_g3P_nmHisL4")
+GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyB8gHxL04sVuN_DTKeJVOiyIpSyqXaJnyE")
 
 # Configura o Gemini apenas com a chave válida
 genai.configure(api_key=GEMINI_API_KEY)
@@ -37,7 +37,7 @@ st.set_page_config(
 )
 
 # Configuração do Gemini 
-GEMINI_API_KEY = "AIzaSyAiZS9q4IZ3TfxI5GCIX8p_g3P_nmHisL4"  
+GEMINI_API_KEY = "AIzaSyB8gHxL04sVuN_DTKeJVOiyIpSyqXaJnyE"  
 
 class TaxAIChatbot:
     def __init__(self):
