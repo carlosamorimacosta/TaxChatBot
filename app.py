@@ -564,7 +564,23 @@ def main():
                 
                 # Exibe resposta
                 st.success("✅ Resposta baseada em legislação tributária")
-                st.write(response)
+                st.markdown(
+                    f"""
+                    <div style="
+                        font-family: 'Segoe UI', Roboto, sans-serif;
+                        font-size: 16px;
+                        line-height: 1.6;
+                        color: #f8f8f8;
+                        background-color: #111827;
+                        padding: 16px;
+                        border-radius: 10px;
+                        white-space: pre-wrap;
+                    ">
+                        {response.replace('\n', '<br>')}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
                 
                 # Mostrar fontes (expandível)
                 with st.expander("📋 Fontes Consultadas"):
