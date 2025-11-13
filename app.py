@@ -24,8 +24,8 @@ import google.generativeai as genai
 load_dotenv()
 
 # 🔑 Corrigido — carrega da variável de ambiente OU usa fallback direto
-GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyBP6P_tEaMsBJ39VJs4fNaTXbAK4DGk02g")
-GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY", "AIzaSyBP6P_tEaMsBJ39VJs4fNaTXbAK4DGk02g")
+GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyBkWuqcCqqh9Ar68wilBC2vupRa6D6UpnA")
+GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY", "AIzaSyBkWuqcCqqh9Ar68wilBC2vupRa6D6UpnA")
 SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID", "050533600bafd48d3")
 
 # === 🌐 Integração com Busca na Web (Google Custom Search) ===
@@ -64,7 +64,7 @@ st.set_page_config(
 )
 
 # Configuração do Gemini 
-GEMINI_API_KEY = "AIzaSyBP6P_tEaMsBJ39VJs4fNaTXbAK4DGk02g"  
+GEMINI_API_KEY = "AIzaSyBkWuqcCqqh9Ar68wilBC2vupRa6D6UpnA"  
 
 class TaxAIChatbot:
     def __init__(self):
