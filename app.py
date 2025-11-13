@@ -345,13 +345,14 @@ class TaxAIChatbot:
     def web_search(self, query, max_results=3):
         """Busca rápida na web para complementar informações."""
         import requests
-    
+        import os
+
         GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
         SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
-    
+
         if not GOOGLE_SEARCH_API_KEY or not SEARCH_ENGINE_ID:
             return "⚠️ Busca web não configurada."
-    
+
         url = "https://www.googleapis.com/customsearch/v1"
         params = {
             "key": GOOGLE_SEARCH_API_KEY,
@@ -360,7 +361,7 @@ class TaxAIChatbot:
             "num": max_results,
             "hl": "pt-BR"
         }
-    
+
         try:
             res = requests.get(url, params=params, timeout=10)
             res.raise_for_status()
