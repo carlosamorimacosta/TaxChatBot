@@ -564,37 +564,23 @@ def main():
                 
                 # Exibe resposta
                 st.success("✅ Resposta baseada em legislação tributária")
-                import re
-                # Detecta e formata tabelas Markdown
-                if "|" in response and re.search(r"\| *[-:]+ *\|", response):
-                    st.markdown(
-                        f"""
-                        <div style="overflow-x:auto; background:#1f2937; border-radius:10px; padding:10px;">
-                            <table style="width:100%; border-collapse:collapse; text-align:center; font-family:'Segoe UI'; color:#f8f8f8;">
-                                {response.replace('|', '</td><td>').replace('\n', '</tr><tr>')}
-                            </table>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                else:
-                    st.markdown(
-                        f"""
-                        <div style="
-                            font-family: 'Segoe UI', Roboto, sans-serif;
-                            font-size: 16px;
-                            line-height: 1.6;
-                            color: #f8f8f8;
-                            background-color: #111827;
-                            padding: 16px;
-                            border-radius: 10px;
-                            white-space: pre-wrap;
-                        ">
-                            {response.replace('\n', '<br>')}
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+                st.markdown(
+                    f"""
+                    <div style="
+                        font-family: 'Segoe UI', Roboto, sans-serif;
+                        font-size: 16px;
+                        line-height: 1.6;
+                        color: #f8f8f8;
+                        background-color: #111827;
+                        padding: 16px;
+                        border-radius: 10px;
+                        white-space: pre-wrap;
+                    ">
+                        {response.replace('\n', '<br>')}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
                 
                 # Mostrar fontes (expandível)
