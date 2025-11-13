@@ -459,18 +459,36 @@ INSTRUÇÕES:
                 # ⚠️ Caso bloqueado pelo filtro de segurança
                 if str(finish_reason) == "2":
                     st.warning("⚠️ Resposta bloqueada pelo filtro de segurança. Reenviando com prompt seguro...")
-                    safe_prompt = (
-                        f"Responda de forma neutra e informativa, sem emitir julgamentos. "
-                        f"Apenas explique o conceito tributário de forma didática. Pergunta: {question}"
-                    )
+
+                # Reforço semântico: Gemini deve explicar o conceito e não fazer cálculo direto
+                    safe_prompt = f"""
+Você é um assistente de consultoria tributária da FGV.
+
+O usuário perguntou: {question}
+
+Por favor, explique **de forma geral**:
+- Como funcionam as faixas de isenção do IRPF.
+- Como a base de cálculo e as deduções afetam os valores de imposto.
+- Use exemplos aproximados (sem emitir valores exatos ou personalizados).
+- Não faça simulações financeiras, apenas explique o conceito.
+- Se a pergunta envolver cálculos numéricos (ex: faixas salariais), explique o processo de cálculo e as regras legais, sem emitir valores exatos.
+
+Referencie o contexto abaixo se for útil:
+{context}
+"""
+
                     safe_response = self.model.generate_content(safe_prompt)
+
                     if hasattr(safe_response, "text") and safe_response.text:
                         return safe_response.text.strip()
+                
                     elif hasattr(safe_response, "candidates") and len(safe_response.candidates) > 0:
                         parts = safe_response.candidates[0].content.parts
                         if parts and hasattr(parts[0], "text"):
                             return parts[0].text.strip()
-                    return "⚠️ O modelo não pôde responder por razões de segurança."
+                
+                    return "⚠️ O modelo recusou fornecer detalhes exatos por segurança, mas você pode pedir uma explicação geral sobre as faixas de isenção."
+
 
             return "⚠️ O modelo não retornou conteúdo legível."
 
