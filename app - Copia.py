@@ -24,7 +24,7 @@ import google.generativeai as genai
 load_dotenv()
 
 # 🔑 Corrigido — carrega da variável de ambiente OU usa fallback direto
-GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyD1HL4mv_8qaQel20_k8x0iPYGrIee7yMk")
+GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyAiZS9q4IZ3TfxI5GCIX8p_g3P_nmHisL4")
 
 # Configura o Gemini apenas com a chave válida
 genai.configure(api_key=GEMINI_API_KEY)
@@ -37,7 +37,7 @@ st.set_page_config(
 )
 
 # Configuração do Gemini 
-GEMINI_API_KEY = "AIzaSyD1HL4mv_8qaQel20_k8x0iPYGrIee7yMk"  
+GEMINI_API_KEY = "AIzaSyAiZS9q4IZ3TfxI5GCIX8p_g3P_nmHisL4"  
 
 class TaxAIChatbot:
     def __init__(self):
@@ -112,26 +112,51 @@ class TaxAIChatbot:
         return text
 
     def extract_text_from_pdf(self, pdf_path):
-        """Extrai texto de arquivos PDF"""
+        """Extrai texto de arquivos PDF com tratamento para tabelas e limpeza de formatação"""
+        import pdfplumber
+        import PyPDF2
+        import re
         text = ""
+    
         try:
             with pdfplumber.open(pdf_path) as pdf:
                 for page_num, page in enumerate(pdf.pages):
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
+                    # Extrai texto normal
+                    page_text = page.extract_text() or ""
+    
+                    # Extrai tabelas (se houver)
+                    tables = page.extract_tables()
+                    if tables:
+                        for table in tables:
+                            # Junta células com espaço e linhas com \n
+                            table_text = "\n".join([
+                                " | ".join([str(cell) if cell is not None else "" for cell in row])
+                                for row in table if any(row)
+                            ])
+                            page_text += "\n\n[TABELA DETECTADA]\n" + table_text + "\n"
+    
+                    # Limpeza de formatação
+                    page_text = re.sub(r'\s+', ' ', page_text)  # remove quebras de linha e espaços extras
+                    page_text = page_text.replace("‐", "-")      # substitui traços especiais
+    
+                    if len(page_text.strip()) > 20:
+                        text += page_text.strip() + "\n\n"
+    
         except Exception as e:
+            st.warning(f"⚠️ Falha com pdfplumber ({os.path.basename(pdf_path)}): {e}")
+            # Fallback leve com PyPDF2
             try:
-                with open(pdf_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
-                    for page in pdf_reader.pages:
+                with open(pdf_path, "rb") as file:
+                    reader = PyPDF2.PdfReader(file)
+                    for page in reader.pages:
                         page_text = page.extract_text()
                         if page_text:
-                            text += page_text + "\n"
+                            text += re.sub(r'\s+', ' ', page_text) + "\n"
             except Exception as e2:
-                st.error(f"Erro no PDF {os.path.basename(pdf_path)}: {e2}")
+                st.error(f"❌ Erro ao extrair texto com PyPDF2: {e2}")
                 return ""
-        return text
+    
+        return text.strip()
 
     def load_and_process_documents(self):
         """Carrega e processa todos os PDFs"""
@@ -161,6 +186,21 @@ class TaxAIChatbot:
 
     def create_vector_store(self, documents):
         """Cria o vector store para busca semântica"""
+        persist_dir = "./chroma_db"
+        os.makedirs(persist_dir, exist_ok=True)
+    
+        # ✅ Se já existe uma base persistida, apenas recarrega
+        if os.path.exists(os.path.join(persist_dir, "chroma.sqlite3")):
+            try:
+                st.info("🔁 Recarregando base vetorial existente...")
+                embeddings = load_embeddings()
+                vector_store = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
+                st.success("✅ Base vetorial recarregada com sucesso!")
+                return vector_store
+            except Exception as e:
+                st.warning(f"Falha ao recarregar base existente: {e}")
+    
+        # Se chegou aqui, é porque precisa criar do zero
         if not documents:
             st.error("Nenhum documento para indexar.")
             return None
@@ -169,11 +209,14 @@ class TaxAIChatbot:
         texts = [doc['content'] for doc in documents if len(doc['content'].strip()) > 50]
     
         # ✅ Divide os textos em blocos
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1200,
+            separators=["\n\n", ".", "!", "?", ";", ":", "\n", " "],
+            chunk_size=1500,
             chunk_overlap=200,
             length_function=len
         )
+
         chunks = []
         for text in texts:
             pieces = text_splitter.split_text(text)
@@ -184,13 +227,14 @@ class TaxAIChatbot:
         # ✅ Cria embeddings e base vetorial
         try:
             embeddings = HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_name="sentence-transformers/all-MiniLM-L12-v2",
                 cache_folder="./models"
             )
     
             persist_dir = "./chroma_db"
             os.makedirs(persist_dir, exist_ok=True)
-    
+
+
             vector_store = Chroma.from_texts(
                 texts=chunks,
                 embedding=embeddings,
@@ -520,7 +564,24 @@ def main():
                 
                 # Exibe resposta
                 st.success("✅ Resposta baseada em legislação tributária")
-                st.write(response)
+                st.markdown(
+                    f"""
+                    <div style="
+                        font-family: 'Segoe UI', Roboto, sans-serif;
+                        font-size: 16px;
+                        line-height: 1.6;
+                        color: #f8f8f8;
+                        background-color: #111827;
+                        padding: 16px;
+                        border-radius: 10px;
+                        white-space: pre-wrap;
+                    ">
+                        {response.replace('\n', '<br>')}
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
                 
                 # Mostrar fontes (expandível)
                 with st.expander("📋 Fontes Consultadas"):
