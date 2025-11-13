@@ -439,9 +439,14 @@ INSTRUÇÕES:
 
             response = self.model.generate_content(prompt)
 
-            # 🔎 Verifica se veio texto direto
-            if hasattr(response, "text") and response.text:
-                return response.text.strip()
+            if hasattr(response, "text"):
+                try:
+                    if response.text:
+                        return response.text.strip()
+                except Exception:
+                    # ignora erro de "no valid Part" e continua verificando candidates
+                    pass
+
 
             # 🧩 Caso o modelo use 'candidates'
             if hasattr(response, "candidates") and len(response.candidates) > 0:
