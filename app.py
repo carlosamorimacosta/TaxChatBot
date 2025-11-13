@@ -412,8 +412,8 @@ class TaxAIChatbot:
             st.error("❌ O modelo Gemini não foi inicializado corretamente.")
             return "Erro: o modelo Gemini não está configurado. Verifique sua API Key e reinicie o sistema."
     
-            # Prompt estruturado
-            prompt = f"""
+        # Prompt estruturado
+        prompt = f"""
 Você é um especialista em **legislação tributária brasileira**, representando a FGV.
 
 CONTEXTO LEGAL DISPONÍVEL:
