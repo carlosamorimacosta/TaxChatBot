@@ -379,21 +379,21 @@ class TaxAIChatbot:
 
 
         def generate_ai_response(self, question, context, conversation_history=[]):
-        """Gera resposta usando Gemini AI com tratamento robusto de erros e bloqueios"""
-    
-        if len(question.strip()) < 10:
-            question = (
-                f"O usuário perguntou: '{question}'. "
-                "Explique o possível significado tributário dessa questão."
-            )
-    
-        history_text = ""
-        if conversation_history:
-            history_text = "\nHistórico recente:\n"
-            for msg in conversation_history[-4:]:
-                history_text += f"{msg['role']}: {msg['content']}\n"
-    
-        prompt = f"""
+            """Gera resposta usando Gemini AI com tratamento robusto de erros e bloqueios"""
+        
+            if len(question.strip()) < 10:
+                question = (
+                    f"O usuário perguntou: '{question}'. "
+                    "Explique o possível significado tributário dessa questão."
+                )
+        
+            history_text = ""
+            if conversation_history:
+                history_text = "\nHistórico recente:\n"
+                for msg in conversation_history[-4:]:
+                    history_text += f"{msg['role']}: {msg['content']}\n"
+        
+            prompt = f"""
 Você é um especialista em **legislação tributária brasileira**, representando a FGV.
 
 CONTEXTO LEGAL DISPONÍVEL:
