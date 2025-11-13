@@ -16,3 +16,4 @@ pandas
 numpy
 requests
 typing-extensions
+python-dotenv
