@@ -186,9 +186,24 @@ class TaxAIChatbot:
 
     def create_vector_store(self, documents):
         """Cria o vector store para busca semântica"""
-        if not documents:
-            st.error("Nenhum documento para indexar.")
-            return None
+    persist_dir = "./chroma_db"
+    os.makedirs(persist_dir, exist_ok=True)
+
+    # ✅ Se já existe uma base persistida, apenas recarrega
+    if os.path.exists(os.path.join(persist_dir, "chroma.sqlite3")):
+        try:
+            st.info("🔁 Recarregando base vetorial existente...")
+            embeddings = load_embeddings()
+            vector_store = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
+            st.success("✅ Base vetorial recarregada com sucesso!")
+            return vector_store
+        except Exception as e:
+            st.warning(f"Falha ao recarregar base existente: {e}")
+
+    # Se chegou aqui, é porque precisa criar do zero
+    if not documents:
+        st.error("Nenhum documento para indexar.")
+        return None
     
         # ✅ Combina todos os textos
         texts = [doc['content'] for doc in documents if len(doc['content'].strip()) > 50]
