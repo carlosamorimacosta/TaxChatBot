@@ -669,25 +669,48 @@ def main():
                     )
                 
                 # Exibe resposta
+                # Exibe resposta com formatação aprimorada
                 st.success("✅ Resposta baseada em legislação tributária")
+
+                # Limpeza de caracteres problemáticos e ajustes de formatação
+                clean_response = response.replace("‐", "-").replace("₋", "-")
+                clean_response = clean_response.replace("R$", "R$ ")  # garante espaço após símbolo
+                clean_response = clean_response.replace(" ,", ",").replace(" .", ".")
+                clean_response = clean_response.replace("  ", " ")
+
+                # 🔹 1. Renderização das fórmulas matemáticas detectadas
+                import re
+                formulas = re.findall(r'R\s*=?\s*[0-9,.\s\-–x\*()]+', clean_response)
+                if formulas:
+                    st.markdown("### 🧮 Cálculos identificados:")
+                    for f in formulas:
+                        latex_expr = (
+                            f.replace("R$", "")
+                             .replace(",", ".")
+                             .replace("x", "*")
+                             .replace("–", "-")
+                        )
+                        st.latex(latex_expr)
+
+                # 🔹 2. Renderização padronizada do texto final
                 st.markdown(
                     f"""
                     <div style="
                         font-family: 'Segoe UI', Roboto, sans-serif;
-                        font-size: 16px;
-                        line-height: 1.6;
+                        font-size: 17px;
+                        line-height: 1.7;
                         color: #f8f8f8;
                         background-color: #111827;
-                        padding: 16px;
+                        padding: 18px;
                         border-radius: 10px;
                         white-space: pre-wrap;
+                        word-break: keep-all;
                     ">
-                        {response.replace('\n', '<br>')}
+                        {clean_response.replace('\n', '<br>')}
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
-
                 
                 # Mostrar fontes (expandível)
                 with st.expander("📋 Fontes Consultadas"):
