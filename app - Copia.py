@@ -379,10 +379,10 @@ class TaxAIChatbot:
 
 
     def generate_ai_response(self, question, context, conversation_history=[]):
-        """Gera resposta usando Gemini AI com contexto e tratamento de bloqueios"""
+        """Gera resposta usando Gemini AI com contexto, fallback seguro e busca na web se necessário"""
 
         # Reforço automático para perguntas curtas
-        if len(question.strip()) < 10:
+        if not question or len(question.strip()) < 10:
             question = (
                 f"O usuário perguntou: '{question}'. "
                 "Explique o possível significado tributário dessa questão."
@@ -395,16 +395,23 @@ class TaxAIChatbot:
             for msg in conversation_history[-4:]:
                 history_text += f"{msg['role']}: {msg['content']}\n"
 
-        # Busca opcional na internet se a resposta demorar para ser formulada a partir dos documentos
+        # 🔍 Busca opcional na internet se a pergunta for sobre algo recente
         if any(term in question.lower() for term in ["2024", "2025", "atual", "reforma", "nova lei", "mudança", "últimas"]):
-            st.info("🌐 Buscando informações atualizadas na internet...")
-            web_results = self.web_search(question)
-            if web_results and "⚠️" not in web_results:
-                context += f"\n\n📡 INFORMAÇÕES ATUALIZADAS (WEB):\n{web_results}"
-            else:
-                st.warning("Nenhum resultado recente encontrado na web.")
+            try:
+                st.info("🌐 Buscando informações atualizadas na internet...")
+                web_results = self.web_search(question)
+                if web_results and "⚠️" not in web_results:
+                    context += f"\n\n📡 INFORMAÇÕES ATUALIZADAS (WEB):\n{web_results}"
+                else:
+                    st.warning("Nenhum resultado recente encontrado na web.")
+            except Exception as e:
+                st.warning(f"Falha na busca web: {e}")
 
-        
+        # 🔐 Segurança e robustez — garante que o modelo existe
+        if not hasattr(self, "model") or self.model is None:
+            st.error("❌ O modelo Gemini não foi inicializado corretamente.")
+            return "Erro: o modelo Gemini não está configurado. Verifique sua API Key e reinicie o sistema."
+    
         # Prompt estruturado
         prompt = f"""
 Você é um especialista em **legislação tributária brasileira**, representando a FGV.
@@ -420,48 +427,40 @@ INSTRUÇÕES:
 - Responda de forma técnica, precisa e objetiva.
 - Cite dispositivos legais relevantes.
 - Se a resposta não estiver no contexto, diga isso claramente e dê uma explicação geral com base na legislação tributária.
-- Não emita opiniões pessoais, apenas informações jurídicas e normativas.
-- Sempre mantenha tom profissional e neutro.
+- Não emita opiniões pessoais.
+- Mantenha tom profissional e neutro.
 """
 
+        # 🧠 Geração segura da resposta
         try:
-            # Verifica se o modelo está configurado
-            if not hasattr(self, "model") or self.model is None:
-                st.error("❌ Modelo Gemini não configurado.")
-                return "Erro: modelo não configurado."
-
-            # Chama o modelo Gemini
-            # 🚀 Limita o tamanho do contexto e do histórico
-            if len(context) > 5000:
-                context = context[:5000]
-            if len(history_text) > 1500:
-                history_text = history_text[-1500:]
-
             response = self.model.generate_content(prompt)
 
-            if hasattr(response, "text"):
-                try:
-                    if response.text:
-                        return response.text.strip()
-                except Exception:
-                    # ignora erro de "no valid Part" e continua verificando candidates
-                    pass
+            if response is None:
+                return "⚠️ Nenhuma resposta foi retornada pela IA."
 
+            # 🔎 Caso tenha o atributo direto .text
+            if hasattr(response, "text") and response.text:
+                return response.text.strip()
 
-            # 🧩 Caso o modelo use 'candidates'
+            # 🧩 Caso a resposta venha via 'candidates'
             if hasattr(response, "candidates") and len(response.candidates) > 0:
                 candidate = response.candidates[0]
                 finish_reason = getattr(candidate, "finish_reason", None)
 
-                # ✅ Caso normal — resposta presente
-                if candidate.content and hasattr(candidate.content.parts[0], "text"):
+                # ✅ Caso normal
+                if (
+                    hasattr(candidate, "content")
+                    and hasattr(candidate.content, "parts")
+                    and len(candidate.content.parts) > 0
+                    and hasattr(candidate.content.parts[0], "text")
+                ):
                     return candidate.content.parts[0].text.strip()
 
-                # ⚠️ Caso bloqueado por safety (finish_reason == 2)
+                # ⚠️ Caso bloqueado pelo filtro de segurança
                 if str(finish_reason) == "2":
                     st.warning("⚠️ Resposta bloqueada pelo filtro de segurança. Reenviando com prompt seguro...")
                     safe_prompt = (
-                        f"Responda de forma neutra e informativa, sem emitir julgamentos ou conselhos. "
+                        f"Responda de forma neutra e informativa, sem emitir julgamentos. "
                         f"Apenas explique o conceito tributário de forma didática. Pergunta: {question}"
                     )
                     safe_response = self.model.generate_content(safe_prompt)
@@ -473,14 +472,11 @@ INSTRUÇÕES:
                             return parts[0].text.strip()
                     return "⚠️ O modelo não pôde responder por razões de segurança."
 
-            # 🧱 Caso nenhuma resposta válida tenha sido retornada
             return "⚠️ O modelo não retornou conteúdo legível."
 
         except Exception as e:
             st.error(f"⚠️ Erro ao processar resposta do modelo: {e}")
             return f"Erro interno: {e}"
-
-
 
 
 def initialize_system():
