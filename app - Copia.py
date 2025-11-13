@@ -24,7 +24,34 @@ import google.generativeai as genai
 load_dotenv()
 
 # 🔑 Corrigido — carrega da variável de ambiente OU usa fallback direto
-GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyAiZS9q4IZ3TfxI5GCIX8p_g3P_nmHisL4")
+GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyBR0HGB-psvreNN16boqWLRki4quGGp1Es")
+GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY", "AIzaSyBR0HGB-psvreNN16boqWLRki4quGGp1Es")
+SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID", "050533600bafd48d3")
+
+# === 🌐 Integração com Busca na Web (Google Custom Search) ===
+import requests
+
+GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
+SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
+
+def buscar_na_web(query, num_results=3):
+    """Busca na web usando Google Programmable Search Engine."""
+    url = (
+        f"https://www.googleapis.com/customsearch/v1?"
+        f"key={GOOGLE_SEARCH_API_KEY}&cx={SEARCH_ENGINE_ID}&q={query}"
+    )
+    try:
+        resp = requests.get(url)
+        data = resp.json()
+        results = []
+        if "items" in data:
+            for item in data["items"][:num_results]:
+                snippet = item.get("snippet", "")
+                link = item.get("link", "")
+                results.append(f"{snippet}\n🔗 {link}")
+        return "\n\n".join(results)
+    except Exception as e:
+        return f"⚠️ Erro na busca online: {e}"
 
 # Configura o Gemini apenas com a chave válida
 genai.configure(api_key=GEMINI_API_KEY)
@@ -37,7 +64,7 @@ st.set_page_config(
 )
 
 # Configuração do Gemini 
-GEMINI_API_KEY = "AIzaSyAiZS9q4IZ3TfxI5GCIX8p_g3P_nmHisL4"  
+GEMINI_API_KEY = "AIzaSyBR0HGB-psvreNN16boqWLRki4quGGp1Es"  
 
 class TaxAIChatbot:
     def __init__(self):
@@ -315,6 +342,40 @@ class TaxAIChatbot:
             st.warning(f"Rerank falhou: {e}")
             return results
 
+        def web_search(self, query, max_results=3):
+            """Busca rápida na web para complementar informações."""
+            import requests
+    
+            GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
+            SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
+    
+            if not GOOGLE_SEARCH_API_KEY or not SEARCH_ENGINE_ID:
+                return "⚠️ Busca web não configurada."
+    
+            url = "https://www.googleapis.com/customsearch/v1"
+            params = {
+                "key": GOOGLE_SEARCH_API_KEY,
+                "cx": SEARCH_ENGINE_ID,
+                "q": query,
+                "num": max_results,
+                "hl": "pt-BR"
+            }
+    
+            try:
+                res = requests.get(url, params=params, timeout=10)
+                res.raise_for_status()
+                data = res.json()
+                results = []
+                for item in data.get("items", []):
+                    title = item.get("title")
+                    snippet = item.get("snippet")
+                    link = item.get("link")
+                    results.append(f"**{title}**\n{snippet}\n🔗 {link}")
+                return "\n\n".join(results)
+            except Exception as e:
+                return f"⚠️ Erro ao buscar na web: {e}"
+
+
 
 
     def generate_ai_response(self, question, context, conversation_history=[]):
@@ -334,6 +395,16 @@ class TaxAIChatbot:
             for msg in conversation_history[-4:]:
                 history_text += f"{msg['role']}: {msg['content']}\n"
 
+        # Busca opcional na internet se a resposta demorar para ser formulada a partir dos documentos
+        if any(term in question.lower() for term in ["2024", "2025", "atual", "reforma", "nova lei", "mudança", "últimas"]):
+            st.info("🌐 Buscando informações atualizadas na internet...")
+            web_results = self.web_search(question)
+            if web_results and "⚠️" not in web_results:
+                context += f"\n\n📡 INFORMAÇÕES ATUALIZADAS (WEB):\n{web_results}"
+            else:
+                st.warning("Nenhum resultado recente encontrado na web.")
+
+        
         # Prompt estruturado
         prompt = f"""
 Você é um especialista em **legislação tributária brasileira**, representando a FGV.
@@ -360,11 +431,22 @@ INSTRUÇÕES:
                 return "Erro: modelo não configurado."
 
             # Chama o modelo Gemini
+            # 🚀 Limita o tamanho do contexto e do histórico
+            if len(context) > 5000:
+                context = context[:5000]
+            if len(history_text) > 1500:
+                history_text = history_text[-1500:]
+
             response = self.model.generate_content(prompt)
 
-            # 🔎 Verifica se veio texto direto
-            if hasattr(response, "text") and response.text:
-                return response.text.strip()
+            if hasattr(response, "text"):
+                try:
+                    if response.text:
+                        return response.text.strip()
+                except Exception:
+                    # ignora erro de "no valid Part" e continua verificando candidates
+                    pass
+
 
             # 🧩 Caso o modelo use 'candidates'
             if hasattr(response, "candidates") and len(response.candidates) > 0:
