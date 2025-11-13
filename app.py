@@ -429,6 +429,11 @@ INSTRUÇÕES:
 - Se a resposta não estiver no contexto, diga isso claramente e dê uma explicação geral com base na legislação tributária.
 - Não emita opiniões pessoais.
 - Mantenha tom profissional e neutro.
+- Se houver cálculos, apresente **a fórmula completa e o resultado final**.
+- Sempre utilize o símbolo “R$” antes de valores monetários.
+- Use apenas texto plano, sem LaTeX, emojis ou caracteres especiais invisíveis.
+- Evite fundir letras, mantendo espaçamento natural entre palavras.
+
 """
 
         # 🧠 Geração segura da resposta
@@ -472,6 +477,11 @@ Por favor, explique **de forma geral**:
 - Use exemplos aproximados (sem emitir valores exatos ou personalizados).
 - Não faça simulações financeiras, apenas explique o conceito.
 - Se a pergunta envolver cálculos numéricos (ex: faixas salariais), explique o processo de cálculo e as regras legais, sem emitir valores exatos.
+- Se houver cálculos, apresente **a fórmula completa e o resultado final**.
+- Sempre utilize o símbolo “R$” antes de valores monetários.
+- Use apenas texto plano, sem LaTeX, emojis ou caracteres especiais invisíveis.
+- Evite fundir letras, mantendo espaçamento natural entre palavras.
+
 
 Referencie o contexto abaixo se for útil:
 {context}
