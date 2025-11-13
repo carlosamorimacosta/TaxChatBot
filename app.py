@@ -360,6 +360,12 @@ INSTRUÇÕES:
                 return "Erro: modelo não configurado."
 
             # Chama o modelo Gemini
+            # 🚀 Limita o tamanho do contexto e do histórico
+            if len(context) > 5000:
+                context = context[:5000]
+            if len(history_text) > 1500:
+                history_text = history_text[-1500:]
+
             response = self.model.generate_content(prompt)
 
             # 🔎 Verifica se veio texto direto
