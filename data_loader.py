@@ -140,11 +140,22 @@ def create_vector_store(documents=None):
 
 
 def load_vector_store():
-    """
-    Versão simplificada - carrega o vector store do cache
-    """
-    print("💾 Carregando vector store do cache (mock).")
-    return None
+    print("💾 Carregando vector store do ChromaDB...")
+
+    embedder = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+
+    if not os.path.exists("db"):
+        print("⚠️ Nenhum vector store encontrado, crie um novo.")
+        return None
+
+    vector_store = Chroma(
+        persist_directory="db",
+        embedding_function=embedder
+    )
+
+    print("✅ Vector store carregado do disco.")
+    return vector_store
+
 
 
 def get_document_count():
