@@ -669,11 +669,29 @@ def main():
                 
                 # Gera resposta com IA
                 with st.spinner("🧠 Gerando resposta especializada..."):
-                    response = chatbot.generate_ai_response(
-                        question, 
-                        context, 
-                        st.session_state.conversation_history
-                    )
+                    
+                    # 🔗 Tenta responder usando o QA Chain (documentos)
+                    qa_chain = st.session_state.get("qa_chain")
+
+                    if qa_chain:
+                        try:
+                            response_obj = qa_chain({"query": question})
+                            response = response_obj["result"]
+                        except Exception:
+                            # fallback automático
+                            response = chatbot.generate_ai_response(
+                                question,
+                                context,
+                                st.session_state.conversation_history
+                            )
+                    else:
+                        # fallback caso o QA_CHAIN não exista
+                        response = chatbot.generate_ai_response(
+                            question,
+                            context,
+                            st.session_state.conversation_history
+                        )
+
                 
                 # Exibe resposta
                 # Exibe resposta com formatação aprimorada
