@@ -56,8 +56,16 @@ def load_documents():
             # Ler o texto de cada PDF
             all_text = ""
             with pdfplumber.open(pdf_file) as pdf:
-                for page in pdf.pages:
-                    all_text += page.extract_text() or ""
+                page_text = page.extract_text()
+
+                if not page_text or len(page_text.strip()) < 20:
+                    # fallback para pypdf
+                    from PyPDF2 import PdfReader
+                    reader = PdfReader(pdf_file)
+                    all_text = "\n".join([p.extract_text() or "" for p in reader.pages])
+                else:
+                    all_text += page_text
+
 
             if not all_text.strip():
                 print(f"⚠️ Nenhum texto encontrado em {filename}.")
@@ -91,12 +99,6 @@ def summarize_documents(docs, llm):
         summary = llm.invoke(f"Resuma brevemente o documento: {doc.page_content[:2000]}")
         summaries.append({"file": doc.metadata.get("filename"), "summary": summary.content})
     return summaries
-    
-    if st.button("Gerar resumos"):
-        summaries = summarize_documents(documents, llm)
-    st.json(summaries)
-
-
 
 # -----------------------------
 # ⚙️ Funções de vetor e armazenamento
