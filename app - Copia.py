@@ -61,10 +61,7 @@ st.set_page_config(
     page_title="Taxbot FGV - Especialista Tributário",
     page_icon="🤖",
     layout="wide"
-)
-
-# Configuração do Gemini 
-GEMINI_API_KEY = "AIzaSyBkWuqcCqqh9Ar68wilBC2vupRa6D6UpnA"  
+)  
 
 class TaxAIChatbot:
     def __init__(self):
@@ -342,41 +339,39 @@ class TaxAIChatbot:
             st.warning(f"Rerank falhou: {e}")
             return results
 
-        def web_search(self, query, max_results=3):
-            """Busca rápida na web para complementar informações."""
-            import requests
-    
-            GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
-            SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
-    
-            if not GOOGLE_SEARCH_API_KEY or not SEARCH_ENGINE_ID:
-                return "⚠️ Busca web não configurada."
-    
-            url = "https://www.googleapis.com/customsearch/v1"
-            params = {
-                "key": GOOGLE_SEARCH_API_KEY,
-                "cx": SEARCH_ENGINE_ID,
-                "q": query,
-                "num": max_results,
-                "hl": "pt-BR"
-            }
-    
-            try:
-                res = requests.get(url, params=params, timeout=10)
-                res.raise_for_status()
-                data = res.json()
-                results = []
-                for item in data.get("items", []):
-                    title = item.get("title")
-                    snippet = item.get("snippet")
-                    link = item.get("link")
-                    results.append(f"**{title}**\n{snippet}\n🔗 {link}")
-                return "\n\n".join(results)
-            except Exception as e:
-                return f"⚠️ Erro ao buscar na web: {e}"
+    def web_search(self, query, max_results=3):
+        """Busca rápida na web para complementar informações."""
+        import requests
+        import os
 
+        GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
+        SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
 
+        if not GOOGLE_SEARCH_API_KEY or not SEARCH_ENGINE_ID:
+            return "⚠️ Busca web não configurada."
 
+        url = "https://www.googleapis.com/customsearch/v1"
+        params = {
+            "key": GOOGLE_SEARCH_API_KEY,
+            "cx": SEARCH_ENGINE_ID,
+            "q": query,
+            "num": max_results,
+            "hl": "pt-BR"
+        }
+
+        try:
+            res = requests.get(url, params=params, timeout=10)
+            res.raise_for_status()
+            data = res.json()
+            results = []
+            for item in data.get("items", []):
+                title = item.get("title")
+                snippet = item.get("snippet")
+                link = item.get("link")
+                results.append(f"**{title}**\n{snippet}\n🔗 {link}")
+            return "\n\n".join(results)
+        except Exception as e:
+            return f"⚠️ Erro ao buscar na web: {e}"
 
     def generate_ai_response(self, question, context, conversation_history=[]):
         """Gera resposta usando Gemini AI com contexto, fallback seguro e busca na web se necessário"""
@@ -667,6 +662,7 @@ def main():
                         context, 
                         st.session_state.conversation_history
                     )
+
                 
                 # Exibe resposta
                 # Exibe resposta com formatação aprimorada
