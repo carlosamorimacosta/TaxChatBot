@@ -585,15 +585,6 @@ def initialize_system():
             # Cria vector store
             with st.spinner("🧠 Criando base de conhecimento..."):
                 chatbot.vector_store = chatbot.create_vector_store(documents)
-    
-                # 🔹 Criar cadeia de Q&A integrada ao Gemini
-                from qa_chain import create_qa_chain  # caso esteja em arquivo separado
-                st.session_state.qa_chain = create_qa_chain(
-                    vector_store=chatbot.vector_store,
-                    chosen_model=chatbot.chosen_model,
-                    gemini_api_key=GEMINI_API_KEY
-                )
-
                 st.session_state.initialized = True
                 st.success("✅ Sistema de IA inicializado com sucesso!")
 
@@ -669,28 +660,11 @@ def main():
                 
                 # Gera resposta com IA
                 with st.spinner("🧠 Gerando resposta especializada..."):
-                    
-                    # 🔗 Tenta responder usando o QA Chain (documentos)
-                    qa_chain = st.session_state.get("qa_chain")
-
-                    if qa_chain:
-                        try:
-                            response_obj = qa_chain({"query": question})
-                            response = response_obj["result"]
-                        except Exception:
-                            # fallback automático
-                            response = chatbot.generate_ai_response(
-                                question,
-                                context,
-                                st.session_state.conversation_history
-                            )
-                    else:
-                        # fallback caso o QA_CHAIN não exista
-                        response = chatbot.generate_ai_response(
-                            question,
-                            context,
-                            st.session_state.conversation_history
-                        )
+                    response = chatbot.generate_ai_response(
+                        question, 
+                        context, 
+                        st.session_state.conversation_history
+                    )
 
                 
                 # Exibe resposta
