@@ -585,6 +585,15 @@ def initialize_system():
             # Cria vector store
             with st.spinner("🧠 Criando base de conhecimento..."):
                 chatbot.vector_store = chatbot.create_vector_store(documents)
+    
+                # 🔹 Criar cadeia de Q&A integrada ao Gemini
+                from qa_chain import create_qa_chain  # caso esteja em arquivo separado
+                st.session_state.qa_chain = create_qa_chain(
+                    vector_store=chatbot.vector_store,
+                    chosen_model=chatbot.chosen_model,
+                    gemini_api_key=GEMINI_API_KEY
+                )
+
                 st.session_state.initialized = True
                 st.success("✅ Sistema de IA inicializado com sucesso!")
 
