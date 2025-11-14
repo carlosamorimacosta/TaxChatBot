@@ -112,17 +112,31 @@ def create_vector_store(documents=None):
         print("⚠️ Nenhum documento fornecido para criar vector store")
         return None
 
-    class MockVectorStore:
-        def __init__(self, docs):
-            self.docs = docs
+    from langchain_community.embeddings import HuggingFaceEmbeddings
+    from langchain_community.vectorstores import Chroma
 
-        def similarity_search(self, query, k=3):
-            print(f"🔍 Simulando busca por: '{query}'")
-            # Retorna os primeiros k documentos como simulação
-            return self.docs[:k]
+    EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
-    print(f"✅ Vector store criado com {len(documents)} chunks (cache ativo)")
-    return MockVectorStore(documents)
+    def create_vector_store(documents):
+        print("🔧 Criando vector store REAL com ChromaDB...")
+    
+        embedder = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    
+        texts = [doc.page_content for doc in documents]
+        metadatas = [doc.metadata for doc in documents]
+    
+        vector_store = Chroma.from_texts(
+            texts=texts,
+            metadatas=metadatas,
+            embedding_function=embedder,
+            persist_directory="db"   # <--- PASTA DO CHROMA
+        )
+    
+        vector_store.persist()
+        print("✅ Vector store criado e persistido em /db")
+    
+        return vector_store
+
 
 
 def load_vector_store():
