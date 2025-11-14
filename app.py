@@ -61,10 +61,7 @@ st.set_page_config(
     page_title="Taxbot FGV - Especialista Tributário",
     page_icon="🤖",
     layout="wide"
-)
-
-# Configuração do Gemini 
-GEMINI_API_KEY = "AIzaSyBkWuqcCqqh9Ar68wilBC2vupRa6D6UpnA"  
+)  
 
 class TaxAIChatbot:
     def __init__(self):
