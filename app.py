@@ -24,8 +24,8 @@ import google.generativeai as genai
 load_dotenv()
 
 # 🔑 Corrigido — carrega da variável de ambiente OU usa fallback direto
-GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyAiZS9q4IZ3TfxI5GCIX8p_g3P_nmHisL4")
-GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY", "AIzaSyAiZS9q4IZ3TfxI5GCIX8p_g3P_nmHisL4")
+GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyDvX8K7NcPmtUgtX03oOQy9GKzBdLocxvA")
+GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY", "AIzaSyDvX8K7NcPmtUgtX03oOQy9GKzBdLocxvA")
 SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID", "050533600bafd48d3")
 
 # === 🌐 Integração com Busca na Web (Google Custom Search) ===
