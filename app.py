@@ -25,6 +25,9 @@ load_dotenv()
 
 # 🔑 Corrigido — carrega da variável de ambiente OU usa fallback direto
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY", "AIzaSyDvX8K7NcPmtUgtX03oOQy9GKzBdLocxvA")
+if not GEMINI_API_KEY:
+    st.error("❌ GOOGLE_API_KEY não configurada!")
+    st.stop()
 GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY", "AIzaSyDvX8K7NcPmtUgtX03oOQy9GKzBdLocxvA")
 SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID", "050533600bafd48d3")
 
@@ -52,6 +55,14 @@ def buscar_na_web(query, num_results=3):
         return "\n\n".join(results)
     except Exception as e:
         return f"⚠️ Erro na busca online: {e}"
+
+st.write("DEBUG API KEY:", GEMINI_API_KEY[:5] if GEMINI_API_KEY else "None")
+
+try:
+    genai.list_models()
+except Exception as e:
+    st.error("API Key inválida")
+st.sidebar.success("🔐 Gemini conectado")
 
 # Configura o Gemini apenas com a chave válida
 genai.configure(api_key=GEMINI_API_KEY)
